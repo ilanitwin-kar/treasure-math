@@ -210,11 +210,14 @@ export function TreasureMapScreen() {
   };
 
   return (
-    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col px-2 py-2 relative" dir="rtl">
+    <div
+      className="h-[100dvh] max-h-[100dvh] min-h-0 w-full overflow-hidden flex flex-col px-2 py-2 box-border relative"
+      dir="rtl"
+    >
       {!mapFullscreen && (
         <>
       {mapFeedback && (
-        <div className="mb-2 shrink-0 w-full max-w-md mx-auto">
+        <div className="mb-2 shrink-0 w-full">
           <div className="bg-violet-100 border-2 border-violet-400 rounded-2xl px-3 py-2 flex items-start gap-2 shadow">
             <span className="text-lg shrink-0" aria-hidden>
               🎯
@@ -255,7 +258,7 @@ export function TreasureMapScreen() {
 
       {/* פרוגרס מסלול */}
       {!completed && totalIslands > 0 ? (
-        <div className="mb-2 shrink-0 w-full max-w-md mx-auto rounded-2xl bg-white/90 border-2 border-amber-200 px-3 py-2 shadow-sm">
+        <div className="mb-2 shrink-0 w-full rounded-2xl bg-white/90 border-2 border-amber-200 px-3 py-2 shadow-sm">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <span className="text-[11px] font-black text-amber-900">{progressLabel}</span>
           </div>
@@ -342,7 +345,7 @@ export function TreasureMapScreen() {
         transition={{ duration: 0.28, ease: "easeInOut" }}
         className={
           mapFullscreen
-            ? "fixed inset-0 z-[500] flex flex-col bg-gradient-to-b from-slate-900/45 to-slate-900/80 p-2 pt-14"
+            ? "fixed inset-0 z-[500] flex flex-col bg-gradient-to-b from-slate-900/50 to-slate-900/85 p-0 m-0"
             : "flex flex-1 min-h-0 flex-col shrink-0"
         }
       >
@@ -350,30 +353,34 @@ export function TreasureMapScreen() {
           <button
             type="button"
             onClick={() => setMapFullscreen(false)}
-            className="absolute top-2 end-2 z-[520] w-10 h-10 rounded-full bg-white shadow-lg border-2 border-stone-300 text-lg font-black text-stone-700 flex items-center justify-center active:scale-95"
+            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] end-[max(0.5rem,env(safe-area-inset-end))] z-[520] w-9 h-9 rounded-full bg-white/95 shadow-lg border-2 border-stone-300 text-base font-black text-stone-700 flex items-center justify-center active:scale-95"
             aria-label="סגור מסך מלא"
           >
             ✕
           </button>
         )}
-        <div className="flex flex-1 min-h-0 flex-row gap-1 w-full min-h-[120px]">
-      {/* מפה — גלילה אנכית, זיגזג, זום */}
+        <div
+          className={`flex flex-1 min-h-0 w-full min-h-0 ${mapFullscreen ? "relative" : "flex-row gap-1"}`}
+        >
+      {/* מפה — גלילה אנכית, זיגזג, זום; רוחב מלא */}
       <div
         ref={mapScrollRef}
         onTouchStart={onMapTouchStart}
         onTouchMove={onMapTouchMove}
         onTouchEnd={onMapTouchEnd}
         onDoubleClick={() => setMapFullscreen(true)}
-        className="flex-1 min-h-0 min-h-[120px] overflow-y-auto overflow-x-hidden rounded-3xl border-4 border-amber-300 shadow-inner overscroll-y-contain touch-manipulation"
+        className={`min-h-0 w-full min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-manipulation ${
+          mapFullscreen ? "flex-1 rounded-none border-0 shadow-none" : "flex-1 rounded-3xl border-4 border-amber-300 shadow-inner"
+        }`}
       >
         {drawCount > 0 ? (
-          <div className="relative w-full mx-auto max-w-md" style={{ height: mapContentHeightPx * mapZoom }}>
+          <div className="relative w-full" style={{ height: mapContentHeightPx * mapZoom }}>
             <div
-              className="absolute top-0 left-1/2 w-full max-w-md -translate-x-1/2 origin-top"
+              className="absolute top-0 left-0 w-full origin-top"
               style={{ height: mapContentHeightPx, transform: `scale(${mapZoom})` }}
             >
           <div
-            className="relative mx-auto w-full max-w-md bg-gradient-to-b from-amber-50 via-cyan-100 to-sky-300"
+            className="relative w-full bg-gradient-to-b from-amber-50 via-cyan-100 to-sky-300"
             style={{ minHeight: mapContentHeightPx }}
           >
             <div className="absolute top-3 start-4 text-2xl opacity-70 pointer-events-none z-[1]">☁️</div>
@@ -491,7 +498,7 @@ export function TreasureMapScreen() {
               const isSkippedRevisit = island && skippedRevisitIslandIds.has(island.id);
               const questionCount = island?.questionIds.length ?? 0;
               const lockFuture = isFuture && !completed;
-              const zigStart = i % 2 === 0;
+              const xPct = isTreasureSpot ? 50 : island ? islandCenterXPercent(globalIdx) : 50;
 
               return (
                 <div
@@ -500,12 +507,16 @@ export function TreasureMapScreen() {
                     if (el) islandRowRefs.current.set(i, el);
                     else islandRowRefs.current.delete(i);
                   }}
-                  className={`relative z-[2] flex items-start pt-2 ${
-                    zigStart ? "justify-start ps-4" : "justify-end pe-4"
-                  }`}
+                  className="relative z-[2] w-full"
                   style={{ minHeight: ROW_STRIDE_PX }}
                 >
-                  <div className="relative flex w-[112px] flex-col items-center">
+                  <div
+                    className="absolute top-2 flex w-[min(9rem,44vw)] max-w-[200px] flex-col items-center"
+                    style={{
+                      left: `${xPct}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => {
@@ -544,7 +555,7 @@ export function TreasureMapScreen() {
                       )}
 
                       <div
-                        className={`flex h-20 w-20 shrink-0 select-none items-center justify-center rounded-full border-4 text-3xl transition-all ${
+                        className={`flex h-[min(5.25rem,24vw)] w-[min(5.25rem,24vw)] min-h-[4.5rem] min-w-[4.5rem] shrink-0 select-none items-center justify-center rounded-full border-4 text-3xl sm:text-4xl transition-all ${
                           lockFuture ? "border-stone-300 bg-stone-100/80 grayscale blur-[0.5px]" : "border-amber-400 bg-white/95 shadow-md"
                         } ${isCurrent ? "ring-4 ring-amber-300 ring-offset-2 ring-offset-cyan-50 scale-105" : ""}`}
                       >
@@ -559,7 +570,7 @@ export function TreasureMapScreen() {
 
                       {island && (
                         <p
-                          className={`mt-1.5 w-full max-w-[7.5rem] text-center text-[10px] font-bold leading-tight line-clamp-2 min-h-[2.5rem] ${
+                          className={`mt-1.5 w-full max-w-[min(13rem,88vw)] text-center text-[10px] font-bold leading-tight line-clamp-2 min-h-[2.5rem] ${
                             isCurrent ? "text-amber-900" : isPast ? "text-emerald-800" : "text-stone-600"
                           }`}
                         >
@@ -568,7 +579,7 @@ export function TreasureMapScreen() {
                         </p>
                       )}
                       {isTreasureSpot && (
-                        <p className="mt-1.5 w-full max-w-[7.5rem] text-center text-[10px] font-black leading-tight line-clamp-2 text-amber-900">
+                        <p className="mt-1.5 w-full max-w-[min(13rem,88vw)] text-center text-[10px] font-black leading-tight line-clamp-2 text-amber-900">
                           האוצר! 🏆
                         </p>
                       )}
@@ -594,7 +605,13 @@ export function TreasureMapScreen() {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1 justify-center shrink-0 self-stretch py-1">
+      <div
+        className={`flex flex-col gap-1 justify-end shrink-0 py-1 ${
+          mapFullscreen
+            ? "absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] end-[max(0.5rem,env(safe-area-inset-end))] z-[510] pointer-events-auto"
+            : ""
+        }`}
+      >
         <button
           type="button"
           onClick={() => bumpZoom(0.1)}

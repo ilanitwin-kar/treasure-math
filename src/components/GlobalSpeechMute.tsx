@@ -1,10 +1,14 @@
+import { useLocation } from "react-router-dom";
 import { useSpeech } from "../hooks/useSpeech";
 
 /**
  * כפתור השתקה גלובלי — קבוע בפינה, מסנכרן ל־localStorage.
+ * במפת האוצר לא מציגים (אין שם TTS ומפריע מעל המפה).
  */
 export function GlobalSpeechMute() {
+  const { pathname } = useLocation();
   const { isMuted, toggleMute } = useSpeech();
+  if (pathname === "/map") return null;
   return (
     <button
       type="button"
