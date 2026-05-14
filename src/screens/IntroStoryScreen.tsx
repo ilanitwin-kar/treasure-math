@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BigButton } from "../components/BigButton";
@@ -7,6 +7,8 @@ import { PirateAvatar } from "../components/PirateAvatar";
 import { markIntroSeen } from "../storage/storage";
 import { useGameStore } from "../store/gameStore";
 import { getPirateById } from "../data/pirates";
+import { stripForSpeech, useSpeech } from "../hooks/useSpeech";
+import { SpeechInlineButton } from "../components/SpeechInlineButton";
 
 interface Scene {
   bgGradient: string;
@@ -77,6 +79,18 @@ function buildScenes(playerName: string): Scene[] {
       showCaptain: true,
     },
     {
+      bgGradient: "from-violet-200 via-purple-200 to-fuchsia-200",
+      bigEmoji: "🦜",
+      title: "רגע, רגע...",
+      narration: [
+        "מישהו שואל בחשאי: איך אותו תוכי נחטף שוב ושוב? חחח.",
+        "התשובה הפיראטית: בכל כיתה פיראט הרע מניח ארגז 'מתנה+חידות' חדש — והתוכים שלנו... טוב, הם חכמים במתמטיקה וקצת פחות בזהירות.",
+        "אז כן: עשרה חברים אמיתיים, הרבה איים, הרבה כלובים. זה ים, לא טלוויזיה דוקומנטרית.",
+      ],
+      floatingEmojis: ["🦜", "😅", "🌊", "📦"],
+      showCaptain: true,
+    },
+    {
       bgGradient: "from-emerald-200 via-teal-200 to-cyan-200",
       bigEmoji: "⚓",
       title: `אתה, ${playerName}!`,
@@ -129,8 +143,29 @@ export function IntroStoryScreen() {
   const isFirst = sceneIndex === 0;
   const isLast = sceneIndex === scenes.length - 1;
 
+  const { speakKeyed, stop } = useSpeech();
+
+  const introSlotKey = useMemo(() => `intro-${sceneIndex}`, [sceneIndex]);
+
+  const captainSceneSpeech = useMemo(() => {
+    return scene.narration
+      .filter((l) => l.trim().length > 0)
+      .map((l) => stripForSpeech(l))
+      .filter((l) => l.length > 0)
+      .join(". ");
+  }, [scene]);
+
+  useEffect(() => {
+    if (!captainSceneSpeech) return;
+    speakKeyed(introSlotKey, captainSceneSpeech, "captain");
+    return () => {
+      stop();
+    };
+  }, [sceneIndex, introSlotKey, captainSceneSpeech, speakKeyed, stop]);
+
   const handleNext = () => {
     if (isLast) {
+      stop();
       markIntroSeen();
       navigate(returnTo);
     } else {
@@ -139,13 +174,14 @@ export function IntroStoryScreen() {
   };
 
   const handleSkip = () => {
+    stop();
     markIntroSeen();
     navigate(returnTo);
   };
 
   return (
     <div
-      className={`min-h-full flex flex-col px-3 py-3 bg-gradient-to-b ${scene.bgGradient} relative overflow-hidden transition-colors`}
+      className={`h-full min-h-0 overflow-hidden flex flex-col px-2 py-2 bg-gradient-to-b ${scene.bgGradient} relative transition-colors`}
     >
       {/* אמוג'ים צפים ברקע */}
       {scene.floatingEmojis.map((emoji, i) => (
@@ -190,14 +226,14 @@ export function IntroStoryScreen() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -50 }}
           transition={{ duration: 0.4 }}
-          className="flex-1 flex flex-col items-center justify-center text-center min-h-0"
+          className="flex-1 flex flex-col items-center justify-center text-center min-h-0 overflow-hidden py-1"
         >
           {/* אמוג'י גדול */}
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 150, delay: 0.2 }}
-            className="text-5xl mb-1 drop-shadow-lg"
+            className="text-4xl mb-0.5 drop-shadow-lg shrink-0"
           >
             {scene.bigEmoji}
           </motion.div>
@@ -207,7 +243,7 @@ export function IntroStoryScreen() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className={`text-2xl md:text-3xl font-black mb-2 ${
+            className={`text-xl sm:text-2xl font-black mb-1 shrink-0 ${
               scene.textOnDark ? "text-white" : "text-stone-800"
             }`}
             style={{
@@ -220,14 +256,14 @@ export function IntroStoryScreen() {
           </motion.h2>
 
           {/* דמויות - קפטן + פיראט */}
-          <div className="flex items-end gap-3 mb-2">
+          <div className="flex items-end gap-2 mb-1 shrink-0">
             {scene.showCaptain && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4, type: "spring" }}
               >
-                <CaptainYamZahav size={90} />
+                <CaptainYamZahav size={72} />
                 <div className="text-[10px] font-black text-center bg-amber-400 text-white rounded-full px-2 mt-1">
                   קפטן ים-זהב
                 </div>
@@ -247,7 +283,7 @@ export function IntroStoryScreen() {
                       : "from-pink-100 to-rose-200"
                   }`}
                 >
-                  <PirateAvatar id={pirate.id} size={70} />
+                  <PirateAvatar id={pirate.id} size={56} />
                 </div>
                 <div className="text-[10px] font-black mt-1 bg-emerald-400 text-white rounded-full px-2">
                   {playerName}
@@ -261,10 +297,20 @@ export function IntroStoryScreen() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className={`bg-white/95 rounded-2xl p-4 max-w-md shadow-xl border-4 ${
+            className={`bg-white/95 rounded-xl p-2.5 max-w-md shadow-lg border-2 max-h-[38vh] min-h-0 overflow-hidden flex flex-col relative pr-10 ${
               scene.textOnDark ? "border-purple-300" : "border-amber-300"
-            } space-y-1 relative`}
+            }`}
           >
+            <SpeechInlineButton
+              slotKey={introSlotKey}
+              payload={{
+                kind: "single",
+                text: captainSceneSpeech,
+                personality: "captain",
+              }}
+              className="absolute top-2 right-2 z-[1] w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
+              titleIdle="השמע את הסיפור"
+            />
             {/* "פצפץ דיבור" - חץ כלפי הדמות */}
             <div
               className={`absolute -top-3 ${
@@ -279,7 +325,7 @@ export function IntroStoryScreen() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.7 + i * 0.1 }}
-                className="text-sm md:text-base font-bold text-stone-800 leading-snug"
+                className="text-xs sm:text-sm font-bold text-stone-800 leading-snug"
               >
                 {line}
               </motion.p>
@@ -289,7 +335,7 @@ export function IntroStoryScreen() {
       </AnimatePresence>
 
       {/* כפתורי ניווט */}
-      <div className="flex gap-2 justify-center shrink-0 mb-2">
+      <div className="flex gap-2 justify-center shrink-0 mb-1">
         {!isFirst && (
           <BigButton
             size="sm"

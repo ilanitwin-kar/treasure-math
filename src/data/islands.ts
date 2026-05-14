@@ -50,6 +50,9 @@ const MIN_QUESTIONS_PER_ISLAND = 5;
  * בונה את רשימת האיים עבור הילד.
  * סדר: כיתה א', כיתה ב'... עד הכיתה של הילד.
  * בכל כיתה - איים לפי נושאים זמינים.
+ *
+ * מסלול דינמי (דילוג קדימה): ראו `adaptivePath.ts` — אחרי סיום בלוק כיתה עם דיוק גבוה
+ * ניתן לקצר את התור ולדלג לכיתת היעד בלי לעבור על כל הביניים.
  */
 export function buildIslands(grade: Grade): Island[] {
   const islands: Island[] = [];
@@ -82,7 +85,7 @@ export function buildIslands(grade: Grade): Island[] {
         topic,
         grade: g as Grade,
         questionIds: qids,
-        parrotId: topic,
+        parrotId: topic, // אותה דמות לפי נושא בכל הכיתות — האי מזוהה ב־id (כיתה+נושא)
       });
     }
   }

@@ -100,4 +100,18 @@ export const GRADE_3_QUESTIONS: Question[] = [
   { id: "g3_time_clock_9", text: "איזו שעה השעון מראה?", answer: "9", topic: "time", difficulty: 3, grade: 3, kind: "clock", visual: { type: "clock", hour: 9 } },
   { id: "g3_time_sec_in_min", text: "כמה שניות יש בדקה אחת?", answer: "60", topic: "time", difficulty: 3, grade: 3 },
   { id: "g3_time_word_a", text: "סרט התחיל ב-5 ונמשך שעה ו-30 דקות. באיזו שעה הסתיים? (כתוב כשעה בלבד אם נגמר בדיוק בשעה, אחרת אינו רלוונטי)", answer: "6:30", topic: "wordProblems", difficulty: 3, grade: 3, acceptAlternatives: ["6.30", "6:30 בערב", "שש וחצי"] },
+
+  // ===== ספירה ויזואלית =====
+  { id: "g3_count_22", text: "כמה כוכבים יש כאן?", answer: "22", topic: "counting", difficulty: 3, grade: 3, kind: "counting", visual: { type: "counting", emoji: "⭐", count: 22 } },
+  { id: "g3_count_25", text: "כמה תפוחים יש כאן?", answer: "25", topic: "counting", difficulty: 3, grade: 3, kind: "counting", visual: { type: "counting", emoji: "🍎", count: 25 } },
+  { id: "g3_count_28", text: "כמה דגים יש כאן?", answer: "28", topic: "counting", difficulty: 3, grade: 3, kind: "counting", visual: { type: "counting", emoji: "🐠", count: 28 } },
+  { id: "g3_count_32", text: "כמה פרחים יש כאן?", answer: "32", topic: "counting", difficulty: 3, grade: 3, kind: "counting", visual: { type: "counting", emoji: "🌸", count: 32 } },
+  { id: "g3_count_35", text: "כמה בלונים יש כאן?", answer: "35", topic: "counting", difficulty: 3, grade: 3, kind: "counting", visual: { type: "counting", emoji: "🎈", count: 35 } },
+
+  // ===== שברים =====
+  { id: "g3_frac_add_same_a", text: "2/7 + 3/7 = ? (כתוב כשבר)", answer: "5/7", topic: "fractions", difficulty: 3, grade: 3 },
+  { id: "g3_frac_sub_same_a", text: "4/5 - 1/5 = ? (כתוב כשבר)", answer: "3/5", topic: "fractions", difficulty: 3, grade: 3 },
+  { id: "g3_frac_half_30", text: "כמה זה 1/2 מ-30?", answer: "15", topic: "fractions", difficulty: 3, grade: 3 },
+  { id: "g3_frac_compare_2_3_3_4", text: "מה גדול יותר: 2/3 או 3/4? (כתוב כשבר)", answer: "3/4", topic: "fractions", difficulty: 3, grade: 3 },
+  { id: "g3_frac_to_decimal", text: "כתוב 3/10 כשבר עשרוני", answer: "0.3", topic: "fractions", difficulty: 3, grade: 3 },
 ];

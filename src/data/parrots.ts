@@ -1,5 +1,10 @@
 import type { Grade, Parrot, Topic } from "../types";
 
+/** מחליף את כל המופעים של `{n}` במחרוזות speech (לא רק המופע הראשון). */
+export function applyParrotNTemplate(text: string, n: number): string {
+  return text.split("{n}").join(String(n));
+}
+
 /**
  * 10 התוכים-הפיראטים - אחד לכל נושא.
  * לכל תוכי יש:
@@ -559,6 +564,9 @@ export const PARROTS: Record<Topic, Parrot> = {
   },
 };
 
+/** כמה דמויות תוכי ייחודיות יש (אחת לכל נושא). שונה ממספר האיים במפה. */
+export const UNIQUE_PARROT_COUNT = Object.keys(PARROTS).length;
+
 /** מחזיר את צבע ה-Tailwind המתאים לפנינה של כל תוכי. */
 export const PEARL_COLOR_CLASSES: Record<Topic, string> = {
   numbers: "from-red-300 to-red-500",
@@ -621,12 +629,9 @@ export function getParrotSpeechForQuestion(
   }
   // אמצע - לסירוגין: לפעמים waitingSpeech עם N, ולפעמים midSpeech
   if (questionIndexInIsland % 2 === 1) {
-    return pickVariant(tier.waitingSpeech, questionIndexInIsland).replace(
-      "{n}",
-      remaining.toString()
-    );
+    return applyParrotNTemplate(pickVariant(tier.waitingSpeech, questionIndexInIsland), remaining);
   }
-  return pickVariant(tier.midSpeech, questionIndexInIsland);
+  return applyParrotNTemplate(pickVariant(tier.midSpeech, questionIndexInIsland), remaining);
 }
 
 /** מחזיר את משפט החופש של התוכי - לפי גיל. */
