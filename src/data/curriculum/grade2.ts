@@ -81,8 +81,24 @@ export const GRADE_2_QUESTIONS: Question[] = [
   { id: "g2_geo_tri_sides", text: "כמה צלעות יש לצורה הזו?", answer: "3", topic: "geometry", difficulty: 2, grade: 2, kind: "shape", visual: { type: "shape", shape: "triangle" } },
   { id: "g2_geo_rect_sides", text: "כמה צלעות יש למלבן?", answer: "4", topic: "geometry", difficulty: 2, grade: 2 },
   { id: "g2_geo_square_corners", text: "כמה קודקודים יש לריבוע?", answer: "4", topic: "geometry", difficulty: 2, grade: 2 },
-  { id: "g2_geo_name_pentagon", text: "איך קוראים לצורה עם 5 צלעות?", answer: "מחומש", topic: "geometry", difficulty: 2, grade: 2 },
-  { id: "g2_geo_name_hexagon", text: "איך קוראים לצורה עם 6 צלעות?", answer: "משושה", topic: "geometry", difficulty: 2, grade: 2 },
+  {
+    id: "g2_geo_name_pentagon",
+    text: "איך קוראים לצורה עם 5 צלעות?",
+    answer: "מחומש",
+    topic: "geometry",
+    difficulty: 2,
+    grade: 2,
+    tapChoices: ["מחומש", "משושה", "משולש", "ריבוע"],
+  },
+  {
+    id: "g2_geo_name_hexagon",
+    text: "איך קוראים לצורה עם 6 צלעות?",
+    answer: "משושה",
+    topic: "geometry",
+    difficulty: 2,
+    grade: 2,
+    tapChoices: ["משושה", "מחומש", "משולש", "ריבוע"],
+  },
 
   // ===== היקף =====
   { id: "g2_perim_square", text: "מה היקף של ריבוע שצלעו 7 ס\"מ?", answer: "28", topic: "geometry", difficulty: 2, grade: 2 },

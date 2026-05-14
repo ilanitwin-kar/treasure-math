@@ -1,12 +1,10 @@
 import { motion } from "framer-motion";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { CagedParrot } from "./CagedParrot";
 import { BigButton } from "./BigButton";
 import { applyParrotNTemplate, getParrotByTopic, PEARL_COLOR_CLASSES } from "../data/parrots";
 import { topicLabel } from "../data/teacherInsights";
-import { useSpeech } from "../hooks/useSpeech";
-import { SpeechInlineButton } from "./SpeechInlineButton";
 import type { Grade, Island } from "../types";
 
 interface IslandDetailModalProps {
@@ -29,15 +27,9 @@ export function IslandDetailModal({
   onClose,
   onSail,
 }: IslandDetailModalProps) {
-  const { speakKeyed, stop } = useSpeech();
   const parrot = getParrotByTopic(island.topic);
   const total = island.questionIds.length;
   const remaining = total - answeredCount;
-
-  const modalSpeechSlotKey = useMemo(
-    () => `island-${island.id}-${status}-${answeredCount}`,
-    [island.id, status, answeredCount]
-  );
 
   const tier = playerGrade <= 2 ? parrot.younger : parrot.older;
 
@@ -53,13 +45,6 @@ export function IslandDetailModal({
     }
     return applyParrotNTemplate(tier.waitingSpeech[0], remaining);
   }, [status, answeredCount, tier, remaining]);
-
-  useEffect(() => {
-    speakKeyed(modalSpeechSlotKey, quoteText, parrot.personality);
-    return () => {
-      stop();
-    };
-  }, [quoteText, parrot.personality, speakKeyed, stop, modalSpeechSlotKey]);
 
   return createPortal(
     <motion.div
@@ -129,17 +114,7 @@ export function IslandDetailModal({
                 showPearl={status === "past"}
               />
             </div>
-            <div className="flex-1 min-w-0 relative pr-9">
-              <SpeechInlineButton
-                slotKey={modalSpeechSlotKey}
-                payload={{
-                  kind: "single",
-                  text: quoteText,
-                  personality: parrot.personality,
-                }}
-                className="absolute top-0 right-0 w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
-                titleIdle="השמע את הדיבור"
-              />
+            <div className="flex-1 min-w-0 relative">
               <div className="text-amber-700 font-black text-base mb-0.5">
                 {parrot.name}
               </div>

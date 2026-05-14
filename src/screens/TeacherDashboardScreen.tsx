@@ -66,7 +66,7 @@ export function TeacherDashboardScreen() {
 
   if (!authenticated) {
     return (
-      <div className="h-full min-h-0 overflow-hidden flex flex-col items-center justify-center px-4 py-6 bg-gradient-to-b from-slate-100 to-slate-200">
+      <div className="h-full min-h-0 overflow-x-hidden overflow-y-auto flex flex-col items-center justify-center px-4 py-6 bg-gradient-to-b from-slate-100 to-slate-200">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -132,7 +132,7 @@ export function TeacherDashboardScreen() {
   }
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-slate-50 px-2 py-2">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col bg-slate-50 px-2 py-2">
       {/* כותרת */}
       <div className="flex items-center justify-between mb-2 shrink-0 bg-slate-50 py-1 z-10">
         <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
@@ -164,10 +164,10 @@ export function TeacherDashboardScreen() {
         </span>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-2">
+      <div className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto flex flex-col gap-2">
       {!selectedProfile ? (
         // ============= רשימת ילדים =============
-        <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto flex flex-col">
           <p className="text-slate-600 mb-3 text-sm">
             בחרי תלמיד כדי לראות דוח מפורט
           </p>
@@ -181,7 +181,7 @@ export function TeacherDashboardScreen() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-h-0 overflow-hidden auto-rows-min content-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-h-0 overflow-x-hidden overflow-y-auto auto-rows-min content-start">
               {profiles.map((profile) => {
                 const sessions = loadSessionsForStudent(profile.id);
                 const allAttempts = sessions.flatMap((s) => s.attempts);
@@ -248,7 +248,7 @@ export function TeacherDashboardScreen() {
         </div>
       ) : report ? (
         // ============= דוח מפורט =============
-        <div className="space-y-2 min-h-0 flex-1 overflow-hidden flex flex-col">
+        <div className="space-y-2 min-h-0 flex-1 overflow-x-hidden overflow-y-auto flex flex-col">
           <button
             onClick={() => setSelectedStudentId(null)}
             className="text-sm font-bold text-slate-600 mb-2 active:scale-95"

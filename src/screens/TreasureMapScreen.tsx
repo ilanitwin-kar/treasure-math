@@ -9,16 +9,36 @@ import { PEARL_COLOR_CLASSES, PARROTS, UNIQUE_PARROT_COUNT, getParrotByTopic } f
 import { PirateAvatar } from "../components/PirateAvatar";
 import { CagedParrot } from "../components/CagedParrot";
 import { IslandDetailModal } from "../components/IslandDetailModal";
-import { SpeechInlineButton } from "../components/SpeechInlineButton";
-import { useSpeech } from "../hooks/useSpeech";
+import { ProfileHeaderButton } from "../components/ProfileHeaderButton";
 import type { Island, Topic } from "../types";
 
-/** גודל אי (קוטר), מרווח אנכי בין איים, וגובה תצוגה — עד 3 איים בו-זמנית */
+/** גודל אי (קוטר), מרווח אנכי בין איים — ~4–5 איים בגובה מסך */
 const ISLAND_DIAMETER_PX = 80;
-const MIN_GAP_BETWEEN_ISLANDS_PX = 120;
+const MIN_GAP_BETWEEN_ISLANDS_PX = 44;
 const ROW_STRIDE_PX = ISLAND_DIAMETER_PX + MIN_GAP_BETWEEN_ISLANDS_PX;
-const MAP_VIEWPORT_MAX_ISLANDS = 3;
-const MAP_SCROLL_MAX_HEIGHT_PX = MAP_VIEWPORT_MAX_ISLANDS * ROW_STRIDE_PX + 32;
+const ISLAND_TOP_PAD_PX = 8;
+const ISLAND_CENTER_Y_IN_ROW = ISLAND_TOP_PAD_PX + ISLAND_DIAMETER_PX / 2;
+
+const PATH_SEG_DURATION_S = 1.5;
+
+const MAP_ZOOM_STORAGE_KEY = "treasure-map-zoom";
+const MAP_ZOOM_MIN = 0.6;
+const MAP_ZOOM_MAX = 1.4;
+
+function readStoredMapZoom(): number {
+  try {
+    const raw = localStorage.getItem(MAP_ZOOM_STORAGE_KEY);
+    const v = raw == null ? NaN : Number(raw);
+    if (Number.isFinite(v) && v >= MAP_ZOOM_MIN && v <= MAP_ZOOM_MAX) return v;
+  } catch {
+    /* ignore */
+  }
+  return 1;
+}
+
+function islandCenterXPercent(idx: number): number {
+  return idx % 2 === 0 ? 78 : 22;
+}
 
 export function TreasureMapScreen() {
   const navigate = useNavigate();
@@ -30,13 +50,36 @@ export function TreasureMapScreen() {
   const clearRecentRescue = useGameStore((s) => s.clearRecentRescue);
   const mapFeedback = useGameStore((s) => s.mapFeedback);
   const clearMapFeedback = useGameStore((s) => s.clearMapFeedback);
-  const { speak, speakKeyed, stop } = useSpeech();
   const resumeSessionOrStartNew = useGameStore((s) => s.resumeSessionOrStartNew);
   const finishSession = useGameStore((s) => s.finishSession);
 
   const [selectedIsland, setSelectedIsland] = useState<Island | null>(null);
+  const [drawingSegIndex, setDrawingSegIndex] = useState<number | null>(null);
+  const prevIslandIdxRef = useRef<number | null>(null);
   const mapScrollRef = useRef<HTMLDivElement | null>(null);
   const islandRowRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const [mapZoom, setMapZoom] = useState(readStoredMapZoom);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const pinchRef = useRef<{ dist: number; zoomAtStart: number } | null>(null);
+  const lastTapRef = useRef(0);
+  const mapZoomRef = useRef(1);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MAP_ZOOM_STORAGE_KEY, String(mapZoom));
+    } catch {
+      /* ignore */
+    }
+  }, [mapZoom]);
+
+  useEffect(() => {
+    if (!mapFullscreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mapFullscreen]);
 
   useEffect(() => {
     if (profile && !session) {
@@ -80,6 +123,30 @@ export function TreasureMapScreen() {
   const progressRatio =
     totalIslands > 0 ? Math.min(1, Math.max(0, (currentIdx + 1) / totalIslands)) : 0;
 
+  useEffect(() => {
+    if (!session) return;
+    const idx = session.currentIslandIndex;
+    if (prevIslandIdxRef.current === null) {
+      prevIslandIdxRef.current = idx;
+      return;
+    }
+    if (idx > prevIslandIdxRef.current) {
+      setDrawingSegIndex(idx - 1);
+      window.setTimeout(() => setDrawingSegIndex(null), PATH_SEG_DURATION_S * 1000);
+    }
+    prevIslandIdxRef.current = idx;
+  }, [session, session?.currentIslandIndex]);
+
+  useLayoutEffect(() => {
+    if (!session || drawCount === 0) return;
+    const targetIdx = completed ? drawCount - 1 : Math.min(currentIdx, drawCount - 1);
+    const el = islandRowRefs.current.get(targetIdx);
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    });
+  }, [session, currentIdx, completed, drawCount, totalIslands]);
+
   if (!profile) {
     navigate("/login", { replace: true });
     return null;
@@ -97,63 +164,55 @@ export function TreasureMapScreen() {
   const rescuedCount = inventory.rescuedParrotIds.length;
   const answeredInCurrentIsland = session.currentQuestionInIslandIndex;
   const questionsInCurrentIsland = currentIsland?.questionIds.length ?? 0;
+  const mapContentHeightPx = drawCount * ROW_STRIDE_PX + 32;
+  mapZoomRef.current = mapZoom;
 
-  const mapGuideSpeechText = useMemo(() => {
-    if (completed) return "הגענו לאוצר! מסע מדהים!";
-    if (currentIsland && currentParrot) {
-      const islandShort = currentIsland.title.split(" (")[0];
-      return `לאי הבא: ${currentIsland.emoji} ${islandShort}. התוכי ${currentParrot.name} מחכה לעזרה. ${answeredInCurrentIsland} מתוך ${questionsInCurrentIsland} שאלות`;
-    }
-    return "בוא נתחיל!";
-  }, [
-    completed,
-    currentIsland,
-    currentParrot,
-    answeredInCurrentIsland,
-    questionsInCurrentIsland,
-  ]);
-
-  useEffect(() => {
-    speakKeyed("map-guide", mapGuideSpeechText, "guide");
-    return () => {
-      stop();
-    };
-  }, [mapGuideSpeechText, speakKeyed, stop]);
-
-  useEffect(() => {
-    if (!mapFeedback) return;
-    speak(mapFeedback, "guide");
-  }, [mapFeedback, speak]);
-
-  useEffect(() => {
-    if (!recentlyRescuedEvent || !profile) return;
-    const p = PARROTS[recentlyRescuedEvent.parrotId as Topic];
-    if (!p) return;
-    const tier = profile.grade <= 2 ? p.younger : p.older;
-    speakKeyed(
-      `rescue-${recentlyRescuedEvent.parrotId}`,
-      tier.free[0],
-      p.personality
-    );
-    return () => {
-      stop();
-    };
-  }, [recentlyRescuedEvent, profile, speakKeyed, stop]);
-
-  /** גלילה לאי הנוכחי (או לאוצר אחרי סיום) */
-  useLayoutEffect(() => {
-    if (!session || drawCount === 0) return;
-    const targetIdx = completed ? drawCount - 1 : Math.min(currentIdx, drawCount - 1);
-    const el = islandRowRefs.current.get(targetIdx);
-    const sc = mapScrollRef.current;
-    if (!el || !sc) return;
-    requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  const bumpZoom = (delta: number) => {
+    setMapZoom((z) => {
+      const n = Math.round((z + delta) * 100) / 100;
+      return Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, n));
     });
-  }, [session, currentIdx, completed, drawCount, totalIslands]);
+  };
+
+  const onMapTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const a = e.touches[0];
+      const b = e.touches[1];
+      pinchRef.current = {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        zoomAtStart: mapZoomRef.current,
+      };
+    }
+  };
+
+  const onMapTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !pinchRef.current) return;
+    const a = e.touches[0];
+    const b = e.touches[1];
+    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (pinchRef.current.dist < 8) return;
+    const ratio = dist / pinchRef.current.dist;
+    const raw = pinchRef.current.zoomAtStart * ratio;
+    setMapZoom(Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, raw)));
+  };
+
+  const onMapTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length >= 2) return;
+    pinchRef.current = null;
+    if (e.changedTouches.length !== 1) return;
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      setMapFullscreen(true);
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  };
 
   return (
-    <div className="h-full min-h-0 flex flex-col px-2 py-2 relative overflow-hidden" dir="rtl">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col px-2 py-2 relative" dir="rtl">
+      {!mapFullscreen && (
+        <>
       {mapFeedback && (
         <div className="mb-2 shrink-0 w-full max-w-md mx-auto">
           <div className="bg-violet-100 border-2 border-violet-400 rounded-2xl px-3 py-2 flex items-start gap-2 shadow">
@@ -183,12 +242,7 @@ export function TreasureMapScreen() {
         >
           🏠
         </button>
-        <div className="bg-white/90 rounded-full px-2 py-1 shadow font-bold text-stone-700 text-sm flex items-center gap-1.5 min-w-0">
-          <div className="bg-gradient-to-br from-sky-100 to-cyan-200 rounded-full overflow-hidden border-2 border-amber-300 shrink-0">
-            <PirateAvatar id={profile.pirateId} size={32} />
-          </div>
-          <span className="truncate">{profile.name}</span>
-        </div>
+        <ProfileHeaderButton />
         <button
           onClick={() => navigate("/shop")}
           className="bg-amber-400/95 hover:bg-amber-500 active:scale-95 rounded-full px-3 py-1 shadow font-bold text-white text-sm flex items-center gap-1.5 shrink-0"
@@ -251,12 +305,6 @@ export function TreasureMapScreen() {
             <>בוא נתחיל!</>
           )}
         </div>
-        <SpeechInlineButton
-          slotKey="map-guide"
-          payload={{ kind: "single", text: mapGuideSpeechText, personality: "guide" }}
-          className="shrink-0 w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 text-base flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
-          titleIdle="השמע את הטקסט"
-        />
       </div>
 
       {/* רצועת תוכים שהוצלו */}
@@ -286,50 +334,147 @@ export function TreasureMapScreen() {
           })}
         </div>
       )}
+        </>
+      )}
 
-      {/* מפה — גלילה אנכית, זיגזג (Candy Crush), קו רק על מה שעברנו */}
+      <motion.div
+        layout
+        transition={{ duration: 0.28, ease: "easeInOut" }}
+        className={
+          mapFullscreen
+            ? "fixed inset-0 z-[500] flex flex-col bg-gradient-to-b from-slate-900/45 to-slate-900/80 p-2 pt-14"
+            : "flex flex-1 min-h-0 flex-col shrink-0"
+        }
+      >
+        {mapFullscreen && (
+          <button
+            type="button"
+            onClick={() => setMapFullscreen(false)}
+            className="absolute top-2 end-2 z-[520] w-10 h-10 rounded-full bg-white shadow-lg border-2 border-stone-300 text-lg font-black text-stone-700 flex items-center justify-center active:scale-95"
+            aria-label="סגור מסך מלא"
+          >
+            ✕
+          </button>
+        )}
+        <div className="flex flex-1 min-h-0 flex-row gap-1 w-full min-h-[120px]">
+      {/* מפה — גלילה אנכית, זיגזג, זום */}
       <div
         ref={mapScrollRef}
-        className="flex-1 min-h-0 min-h-[120px] overflow-y-auto overflow-x-hidden rounded-3xl border-4 border-amber-300 shadow-inner overscroll-y-contain"
-        style={{ maxHeight: `min(65dvh, ${MAP_SCROLL_MAX_HEIGHT_PX}px)` }}
+        onTouchStart={onMapTouchStart}
+        onTouchMove={onMapTouchMove}
+        onTouchEnd={onMapTouchEnd}
+        onDoubleClick={() => setMapFullscreen(true)}
+        className="flex-1 min-h-0 min-h-[120px] overflow-y-auto overflow-x-hidden rounded-3xl border-4 border-amber-300 shadow-inner overscroll-y-contain touch-manipulation"
       >
         {drawCount > 0 ? (
+          <div className="relative w-full mx-auto max-w-md" style={{ height: mapContentHeightPx * mapZoom }}>
+            <div
+              className="absolute top-0 left-1/2 w-full max-w-md -translate-x-1/2 origin-top"
+              style={{ height: mapContentHeightPx, transform: `scale(${mapZoom})` }}
+            >
           <div
             className="relative mx-auto w-full max-w-md bg-gradient-to-b from-amber-50 via-cyan-100 to-sky-300"
-            style={{ minHeight: drawCount * ROW_STRIDE_PX + 32 }}
+            style={{ minHeight: mapContentHeightPx }}
           >
             <div className="absolute top-3 start-4 text-2xl opacity-70 pointer-events-none z-[1]">☁️</div>
             <div className="absolute top-8 end-6 text-xl opacity-60 pointer-events-none z-[1]">☁️</div>
 
             <svg
               className="absolute start-0 top-0 w-full pointer-events-none z-0"
-              style={{ height: drawCount * ROW_STRIDE_PX + 32 }}
-              viewBox={`0 0 100 ${drawCount * ROW_STRIDE_PX + 32}`}
+              style={{ height: mapContentHeightPx }}
+              viewBox="0 0 100 100"
               preserveAspectRatio="none"
             >
-              {Array.from({ length: drawCount - 1 }, (_, seg) => {
-                const passed = completed || seg < currentIdx;
-                if (!passed) return null;
-                const rowSeg = drawCount - 1 - seg;
-                const rowNext = drawCount - 2 - seg;
-                const y1 = rowSeg * ROW_STRIDE_PX + ROW_STRIDE_PX / 2;
-                const y2 = rowNext * ROW_STRIDE_PX + ROW_STRIDE_PX / 2;
-                const x1 = seg % 2 === 0 ? 24 : 76;
-                const x2 = (seg + 1) % 2 === 0 ? 24 : 76;
-                return (
-                  <line
-                    key={`path-${seg}`}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="#ca8a04"
-                    strokeWidth={1.25}
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                );
-              })}
+              {(() => {
+                const contentHLocal = mapContentHeightPx;
+                const yNorm = (rowFromTop: number) =>
+                  ((rowFromTop * ROW_STRIDE_PX + ISLAND_CENTER_Y_IN_ROW) / contentHLocal) * 100;
+                return Array.from({ length: drawCount - 1 }, (_, seg) => {
+                  const rowSeg = drawCount - 1 - seg;
+                  const rowNext = drawCount - 2 - seg;
+                  const x1 = islandCenterXPercent(seg);
+                  const x2 = islandCenterXPercent(seg + 1);
+                  const y1 = yNorm(rowSeg);
+                  const y2 = yNorm(rowNext);
+                  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+                  const isDrawing = drawingSegIndex === seg;
+
+                  if (isDrawing) {
+                    return (
+                      <motion.line
+                        key={`path-anim-${seg}`}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#ca8a04"
+                        strokeWidth={0.9}
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        strokeDasharray={len}
+                        initial={{ strokeDashoffset: len }}
+                        animate={{ strokeDashoffset: 0 }}
+                        transition={{ duration: PATH_SEG_DURATION_S, ease: "easeInOut" }}
+                      />
+                    );
+                  }
+
+                  const passed = completed || seg < currentIdx;
+                  const isNext = !completed && seg === currentIdx;
+                  const isFuture = !completed && seg > currentIdx;
+
+                  if (passed) {
+                    return (
+                      <line
+                        key={`path-${seg}`}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#ca8a04"
+                        strokeWidth={0.85}
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  }
+                  if (isNext) {
+                    return (
+                      <line
+                        key={`path-${seg}`}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#facc15"
+                        strokeWidth={0.75}
+                        strokeLinecap="round"
+                        strokeDasharray="3 4"
+                        opacity={0.95}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  }
+                  if (isFuture) {
+                    return (
+                      <line
+                        key={`path-${seg}`}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#e7e5e4"
+                        strokeWidth={0.65}
+                        strokeLinecap="round"
+                        strokeDasharray="2 5"
+                        opacity={0.85}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  }
+                  return null;
+                });
+              })()}
             </svg>
 
             {Array.from({ length: drawCount }, (_, rowFromTop) => {
@@ -430,27 +575,49 @@ export function TreasureMapScreen() {
                     </button>
 
                     {!completed && isCurrent && (
-                      <motion.div
-                        className="pointer-events-none absolute -top-2 left-1/2 z-20 -translate-x-1/2"
-                        animate={{ rotate: [-5, 5, -5], y: [0, -3, 0] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
+                      <motion.span
+                        className="pointer-events-none absolute -top-7 left-1/2 z-30 -translate-x-1/2 text-2xl drop-shadow-md"
+                        aria-hidden
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{ duration: 0.85, repeat: Infinity, ease: "easeInOut" }}
                       >
-                        <div className="relative flex flex-col items-center">
-                          <div className="rounded-full border-2 border-amber-400 bg-white p-0.5 shadow">
-                            <PirateAvatar id={profile.pirateId} size={28} />
-                          </div>
-                          <div className="-mt-1 text-2xl drop-shadow-md">⛵</div>
-                        </div>
-                      </motion.div>
+                        📍
+                      </motion.span>
                     )}
                   </div>
                 </div>
               );
             })}
           </div>
+            </div>
+          </div>
         ) : null}
       </div>
 
+      <div className="flex flex-col gap-1 justify-center shrink-0 self-stretch py-1">
+        <button
+          type="button"
+          onClick={() => bumpZoom(0.1)}
+          disabled={mapZoom >= MAP_ZOOM_MAX - 0.001}
+          className="w-9 h-9 shrink-0 rounded-xl bg-white shadow border border-amber-300 text-lg font-black text-stone-800 active:scale-95 disabled:opacity-35"
+          aria-label="הגדל מפה"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => bumpZoom(-0.1)}
+          disabled={mapZoom <= MAP_ZOOM_MIN + 0.001}
+          className="w-9 h-9 shrink-0 rounded-xl bg-white shadow border border-amber-300 text-lg font-black text-stone-800 active:scale-95 disabled:opacity-35"
+          aria-label="הקטן מפה"
+        >
+          −
+        </button>
+      </div>
+    </div>
+    </motion.div>
+
+      {!mapFullscreen && (
       <div className="mt-2 flex justify-center items-center gap-2 shrink-0">
         {completed ? (
           <BigButton
@@ -480,6 +647,7 @@ export function TreasureMapScreen() {
           </>
         )}
       </div>
+      )}
 
       <AnimatePresence>
         {selectedIsland && (

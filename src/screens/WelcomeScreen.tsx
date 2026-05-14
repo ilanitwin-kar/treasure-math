@@ -1,32 +1,15 @@
-import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Parrot } from "../components/Parrot";
 import { SpeechBubble } from "../components/SpeechBubble";
 import { BigButton } from "../components/BigButton";
+import { ProfileHeaderButton } from "../components/ProfileHeaderButton";
 import { useGameStore } from "../store/gameStore";
-import { useSpeech } from "../hooks/useSpeech";
 
 export function WelcomeScreen() {
   const navigate = useNavigate();
   const profile = useGameStore((s) => s.profile);
   const session = useGameStore((s) => s.session);
-  const { speakKeyed, stop } = useSpeech();
-
-  const guideWelcomeText = useMemo(
-    () =>
-      profile
-        ? `שלום ${profile.name}! מוכן להמשיך?`
-        : "אהוי! אני קפטן תוכי. בוא נצא למסע!",
-    [profile?.name]
-  );
-
-  useEffect(() => {
-    speakKeyed("welcome", guideWelcomeText, "guide");
-    return () => {
-      stop();
-    };
-  }, [guideWelcomeText, speakKeyed, stop]);
 
   const hasSavedGame = profile && session && !session.completedAt;
 
@@ -39,7 +22,12 @@ export function WelcomeScreen() {
   };
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col items-center justify-between px-4 py-4 relative">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col items-center justify-between px-4 py-4 relative" dir="rtl">
+      {profile ? (
+        <div className="absolute top-2 end-2 z-20 max-w-[min(100%,14rem)]">
+          <ProfileHeaderButton className="w-full" />
+        </div>
+      ) : null}
       {/* קישור נסתר לדף המורה - פינה שמאל למעלה */}
       <button
         onClick={() => navigate("/teacher")}
@@ -66,7 +54,7 @@ export function WelcomeScreen() {
         ☁️
       </motion.div>
 
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center w-full max-w-md overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center w-full max-w-md overflow-x-hidden overflow-y-auto">
         <motion.h1
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -86,20 +74,17 @@ export function WelcomeScreen() {
 
         <div className="flex items-center gap-2 mb-4 max-w-md shrink-0">
           <Parrot size={88} mood="happy" />
-          <SpeechBubble
-            pointerSide="right"
-            innerTextClassName="text-sm sm:text-base"
-            speechReplay={{
-              slotKey: "welcome",
-              kind: "single",
-              text: guideWelcomeText,
-              personality: "guide",
-            }}
-          >
+          <SpeechBubble pointerSide="right" innerTextClassName="text-sm sm:text-base">
             {profile ? (
-              <>שלום {profile.name}!<br />מוכן/ה להמשיך?</>
+              <>
+                שלום {profile.name}!<br />
+                מוכן/ה להמשיך?
+              </>
             ) : (
-              <>אהוי! אני קפטן תוכי.<br />בוא נצא למסע!</>
+              <>
+                אהוי! אני קפטן תוכי.<br />
+                בוא נצא למסע!
+              </>
             )}
           </SpeechBubble>
         </div>

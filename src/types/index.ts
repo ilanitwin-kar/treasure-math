@@ -90,6 +90,8 @@ export interface Question {
   visual?: QuestionVisual;
   hint?: string;
   acceptAlternatives?: string[]; // תשובות נוספות חוקיות (למשל: "ריבוע" או "מרובע")
+  /** בחירה במסך (ללא מקלדת מערכת) — כפתורי מילים/תשובות */
+  tapChoices?: string[];
 }
 
 /**

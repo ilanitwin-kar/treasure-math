@@ -1,36 +1,58 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { SpeechBubble } from "../components/SpeechBubble";
-import { SpeechInlineButton } from "../components/SpeechInlineButton";
 import { BigButton } from "../components/BigButton";
 import { useGameStore } from "../store/gameStore";
 import { getQuestionById } from "../data/questions";
 import { useQuestionTimer } from "../hooks/useQuestionTimer";
-import { useSpeech } from "../hooks/useSpeech";
 import { praiseForCorrect, praiseForSkip, praiseForTrying } from "../data/praise";
 import { QuestionVisualRenderer } from "../components/visuals/QuestionVisualRenderer";
 import { PEARL_COLOR_CLASSES, getParrotByTopic, getParrotSpeechForQuestion } from "../data/parrots";
 import { CagedParrot } from "../components/CagedParrot";
-import { PirateAvatar } from "../components/PirateAvatar";
-import type { AnswerStatus } from "../types";
+import { ProfileHeaderButton } from "../components/ProfileHeaderButton";
+import type { AnswerStatus, Question } from "../types";
 
 type Phase = "asking" | "feedback";
+
+/** מקסימום תווים בשדה התשובה (מקלדת מובנית בלבד) */
+const MAX_ANSWER_CHARS = 15;
 
 function normalizeAnswer(s: string): string {
   return s.trim().replace(/\s+/g, "").toLowerCase();
 }
 
-// "שאלת חישוב" = שאלה ללא אותיות עבריות (כמו 5+7=?).
-// שאלה כזו צריכה להיות מוצגת משמאל לימין כי כך כותבים מתמטיקה.
-// שאלה מילולית (עם טקסט בעברית) נשארת מימין לשמאל כרגיל.
 function isCalculation(text: string): boolean {
   return !/[\u0590-\u05FF]/.test(text);
 }
 
+function parseQuotedChoices(text: string): string[] {
+  const found = new Set<string>();
+  for (const m of text.matchAll(/['׳"]([^'"׳"]{1,40})['׳"]/gu)) {
+    const t = m[1].trim();
+    if (t) found.add(t);
+  }
+  return [...found];
+}
+
+function choiceChips(question: Question): string[] {
+  if (question.tapChoices?.length) return [...new Set(question.tapChoices)];
+  const fromQuotes = parseQuotedChoices(question.text);
+  if (fromQuotes.length >= 2) return fromQuotes;
+  const merged = [question.answer, ...(question.acceptAlternatives ?? [])]
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const uniq = [...new Set(merged)];
+  if (uniq.length >= 2 && uniq.length <= 10 && uniq.some((u) => /[\u0590-\u05FF]/.test(u))) return uniq;
+  return [];
+}
+
+function answerCharPool(question: Question): string {
+  return [question.answer, ...(question.acceptAlternatives ?? [])].join("");
+}
+
 export function QuestionScreen() {
   const navigate = useNavigate();
-  const { speakSequentialKeyed, speakKeyed, stop } = useSpeech();
   const profile = useGameStore((s) => s.profile);
   const session = useGameStore((s) => s.session);
   const islands = useGameStore((s) => s.islands);
@@ -53,7 +75,6 @@ export function QuestionScreen() {
   const [feedbackMessage, setFeedbackMessage] = useState<string>("");
   const [feedbackStatus, setFeedbackStatus] = useState<AnswerStatus>("correct");
   const [pearlsEarned, setPearlsEarned] = useState<number>(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const { snapshot } = useQuestionTimer(phase === "asking");
 
@@ -72,50 +93,7 @@ export function QuestionScreen() {
       session.currentQuestionInIslandIndex,
       totalInIslandSafe
     );
-  }, [
-    currentIsland,
-    session,
-    profile,
-    session?.currentQuestionInIslandIndex,
-    totalInIslandSafe,
-  ]);
-
-  const feedbackSpeechFull = useMemo(() => {
-    if (!question) return "";
-    if (feedbackStatus === "incorrect") {
-      return `${feedbackMessage} התשובה הנכונה הייתה: ${question.answer}`;
-    }
-    return feedbackMessage;
-  }, [feedbackMessage, feedbackStatus, question]);
-
-  useEffect(() => {
-    if (!question || !parrot || !parrotSpeech || !currentQuestionId) return;
-    if (phase !== "asking") return;
-    speakSequentialKeyed(`ask-${currentQuestionId}`, [
-      { text: parrotSpeech, personality: parrot.personality },
-      { text: question.text, personality: parrot.personality },
-    ]);
-    return () => {
-      stop();
-    };
-  }, [
-    phase,
-    currentQuestionId,
-    parrotSpeech,
-    question,
-    parrot,
-    speakSequentialKeyed,
-    stop,
-  ]);
-
-  useEffect(() => {
-    if (!question || !currentQuestionId) return;
-    if (phase !== "feedback" || !feedbackMessage) return;
-    speakKeyed(`feedback-${currentQuestionId}`, feedbackSpeechFull, "guide");
-    return () => {
-      stop();
-    };
-  }, [phase, feedbackMessage, feedbackSpeechFull, speakKeyed, stop, question, currentQuestionId]);
+  }, [currentIsland, session, profile, session?.currentQuestionInIslandIndex, totalInIslandSafe]);
 
   useEffect(() => {
     setAnswer(session?.draftAnswer ?? "");
@@ -128,12 +106,6 @@ export function QuestionScreen() {
     }
   }, [answer, phase, updateDraftAnswer]);
 
-  useEffect(() => {
-    if (phase === "asking" && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [phase, currentQuestionId]);
-
   if (!profile) {
     navigate("/login", { replace: true });
     return null;
@@ -143,6 +115,18 @@ export function QuestionScreen() {
     navigate("/map", { replace: true });
     return null;
   }
+
+  const chips = choiceChips(question);
+  const pool = answerCharPool(question);
+  const showSlash = pool.includes("/");
+  const showDot = pool.includes(".");
+  const showComma = pool.includes(",") || pool.includes("،");
+
+  const append = (ch: string) => {
+    setAnswer((prev) => (prev.length >= MAX_ANSWER_CHARS ? prev : prev + ch));
+  };
+
+  const backspace = () => setAnswer((prev) => prev.slice(0, -1));
 
   const isCorrectAnswer = (input: string): boolean => {
     const normalized = normalizeAnswer(input);
@@ -167,7 +151,7 @@ export function QuestionScreen() {
     });
     setFeedbackMessage(correct ? praiseForCorrect() : praiseForTrying());
     setFeedbackStatus(correct ? "correct" : "incorrect");
-    setPearlsEarned(correct ? 3 : 1); // נכון = 1+2 בונוס, לא נכון = 1
+    setPearlsEarned(correct ? 3 : 1);
     setPhase("feedback");
   };
 
@@ -190,8 +174,6 @@ export function QuestionScreen() {
   const handleNext = () => {
     advanceToNextQuestion();
     setAnswer("");
-    // אם נשארה שאלה באי - נישאר במסך השאלה (ה-store יעדכן את ה-question).
-    // אם סיימנו את האי - חוזרים למפה כדי לראות את ההתקדמות.
     const willStayOnIsland =
       session.currentQuestionInIslandIndex + 1 < currentIsland.questionIds.length;
     if (!willStayOnIsland) {
@@ -208,12 +190,10 @@ export function QuestionScreen() {
   const islandNum = session.currentIslandIndex + 1;
   const totalIslands = session.islandIds.length;
 
-  // כמה תשובות נכונות באי הזה (לחישוב כמה סורגים נשברו)
   const correctInIsland = session.attempts.filter(
     (a) => a.islandId === currentIsland.id && a.status === "correct"
   ).length;
 
-  // האם האי הסתיים עם תשובה נכונה אחרונה? (לאנימציית פיצוץ)
   const isFinalCorrect =
     phase === "feedback" &&
     feedbackStatus === "correct" &&
@@ -223,16 +203,36 @@ export function QuestionScreen() {
     isFinalCorrect
       ? "exploding"
       : phase === "feedback" && feedbackStatus === "incorrect"
-      ? "shaking"
-      : "caged";
+        ? "shaking"
+        : "caged";
 
-  // קלט מספרי או טקסטואלי?
-  const isNumericQuestion = question.kind !== "shape" || /^\d+$/.test(question.answer);
+  const keyColors = [
+    "bg-gradient-to-br from-sky-400 to-blue-500 text-white border-sky-700",
+    "bg-gradient-to-br from-violet-400 to-purple-600 text-white border-purple-800",
+    "bg-gradient-to-br from-emerald-400 to-teal-600 text-white border-teal-800",
+    "bg-gradient-to-br from-amber-400 to-orange-500 text-white border-orange-800",
+    "bg-gradient-to-br from-rose-400 to-pink-600 text-white border-rose-800",
+    "bg-gradient-to-br from-cyan-400 to-cyan-600 text-white border-cyan-800",
+    "bg-gradient-to-br from-indigo-400 to-indigo-600 text-white border-indigo-900",
+    "bg-gradient-to-br from-lime-400 to-green-600 text-white border-green-800",
+    "bg-gradient-to-br from-fuchsia-400 to-fuchsia-600 text-white border-fuchsia-900",
+  ];
+
+  const digitKey = (n: number) => (
+    <button
+      key={n}
+      type="button"
+      onClick={() => append(String(n))}
+      className={`min-h-[50px] rounded-2xl text-2xl font-black shadow-md border-b-4 active:translate-y-0.5 active:border-b-2 ${keyColors[(n - 1) % keyColors.length]}`}
+    >
+      {n}
+    </button>
+  );
 
   return (
     <div
       dir="rtl"
-      className="h-full min-h-0 max-h-[100dvh] overflow-hidden flex flex-col px-2 pt-2 pb-2 w-full max-w-lg mx-auto"
+      className="h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-lg mx-auto overflow-hidden flex flex-col px-2 pt-2 pb-2 box-border"
     >
       <header className="shrink-0 flex items-center justify-between gap-1.5 mb-1.5">
         <div className="flex items-center gap-1 shrink-0">
@@ -263,9 +263,7 @@ export function QuestionScreen() {
             שאלה {questionInIsland}/{totalInIsland} · אי {islandNum}/{totalIslands}
           </div>
         </div>
-        <div className="shrink-0 flex flex-col items-center bg-white/90 rounded-full p-0.5 shadow">
-          <PirateAvatar id={profile.pirateId} size={32} />
-        </div>
+        <ProfileHeaderButton className="shrink-0 max-w-[38%]" />
       </header>
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -279,11 +277,11 @@ export function QuestionScreen() {
               transition={{ duration: 0.2 }}
               className="flex flex-1 flex-col min-h-0 overflow-hidden"
             >
-              <div className="flex shrink-0 gap-1.5 mb-1.5 min-h-0 max-h-[22vh] items-end">
+              <div className="flex shrink-0 gap-1.5 mb-1 min-h-0 max-h-[20vh] items-end">
                 <div className="shrink-0 flex flex-col items-center">
                   <CagedParrot
                     topic={currentIsland.topic}
-                    size={64}
+                    size={56}
                     correctSoFar={correctInIsland}
                     totalQuestions={totalInIsland}
                     state={cageState}
@@ -294,91 +292,132 @@ export function QuestionScreen() {
                 </div>
                 <SpeechBubble
                   pointerSide="right"
-                  className="px-3 py-2 border-2 min-w-0 flex-1 max-h-[22vh] overflow-hidden"
+                  className="px-3 py-2 border-2 min-w-0 flex-1 max-h-[20vh] overflow-y-auto"
                   innerTextClassName="text-xs leading-snug"
-                  speechReplay={
-                    parrot && parrotSpeech && currentQuestionId
-                      ? {
-                          slotKey: `ask-${currentQuestionId}`,
-                          kind: "sequential",
-                          parts: [
-                            { text: parrotSpeech, personality: parrot.personality },
-                            { text: question.text, personality: parrot.personality },
-                          ],
-                        }
-                      : undefined
-                  }
                 >
-                  {parrotSpeech}
+                  {parrotSpeech && <span className="block text-amber-900 font-black">{parrotSpeech}</span>}
+                  <span className="block mt-1 text-stone-800">{question.text}</span>
                 </SpeechBubble>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border-2 border-amber-300 bg-white p-2.5 shadow-md overflow-hidden mb-2">
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border-2 border-amber-300 bg-white p-2 shadow-md overflow-hidden mb-1">
                 {question.visual && (
-                  <div className="flex shrink-0 justify-center max-h-[min(18vh,140px)] min-h-0 items-center overflow-hidden mb-1.5">
-                    <div className="max-h-full scale-[0.88] origin-center flex items-center justify-center">
+                  <div className="flex shrink-0 justify-center max-h-[min(16vh,120px)] min-h-0 items-center overflow-hidden mb-1">
+                    <div className="max-h-full scale-[0.85] origin-center flex items-center justify-center">
                       <QuestionVisualRenderer visual={question.visual} />
                     </div>
                   </div>
                 )}
 
-                <div className="relative shrink-0">
-                  {parrot && currentQuestionId && (
-                    <SpeechInlineButton
-                      slotKey={`ask-qtext-${currentQuestionId}`}
-                      payload={{
-                        kind: "single",
-                        text: question.text,
-                        personality: parrot.personality,
-                      }}
-                      className="absolute top-0 left-0 z-[1] w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
-                      titleIdle="השמע את השאלה"
-                    />
-                  )}
-                  <div
-                    className="shrink-0 text-center text-base sm:text-lg font-black text-stone-800 mb-1.5 leading-snug line-clamp-3 pt-1"
-                    dir={isCalculation(question.text) ? "ltr" : "rtl"}
-                  >
-                    {question.text}
-                  </div>
+                <div
+                  className="shrink-0 text-center text-sm sm:text-base font-black text-stone-800 mb-1 leading-snug line-clamp-3"
+                  dir={isCalculation(question.text) ? "ltr" : "rtl"}
+                >
+                  {question.text}
                 </div>
 
                 <input
-                  ref={inputRef}
                   type="text"
-                  inputMode={isNumericQuestion ? "numeric" : "text"}
-                  pattern={isNumericQuestion ? "[0-9]*" : undefined}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
-                  }}
-                  placeholder="התשובה שלי..."
-                  className="w-full shrink-0 text-center text-lg py-2 bg-amber-50 border-2 border-amber-200 rounded-xl px-2 focus:border-amber-400 focus:outline-none font-black text-stone-800"
+                  readOnly
+                  inputMode="none"
                   autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={answer}
+                  onChange={() => {}}
+                  placeholder="…"
+                  maxLength={MAX_ANSWER_CHARS}
+                  aria-label="תשובה"
+                  className="w-full shrink-0 text-center text-xl py-2 bg-amber-50 border-2 border-amber-300 rounded-2xl px-2 font-black text-stone-900 tracking-wide"
                 />
+
+                {chips.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+                    {chips.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setAnswer(c)}
+                        className="rounded-full bg-violet-100 border-2 border-violet-300 px-2.5 py-1 text-xs font-black text-violet-900 active:scale-95"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="mt-auto shrink-0 flex w-full max-w-md mx-auto gap-2 items-stretch">
+              <div className="mt-auto shrink-0 flex gap-2 w-full max-w-md mx-auto items-stretch min-h-0">
                 <BigButton
                   size="sm"
                   variant="ghost"
                   onClick={handleSkip}
                   icon="⏭"
-                  className="!w-[25%] !min-h-[44px] !shrink-0 !px-1 !py-2 !text-xs !rounded-xl !border-b-2"
+                  className="!w-[22%] !min-h-[48px] !shrink-0 !px-1 !py-2 !text-[11px] !rounded-2xl !border-b-2"
                 >
                   דלג
                 </BigButton>
-                <BigButton
-                  size="md"
-                  variant="primary"
-                  onClick={handleSubmit}
-                  disabled={!answer.trim()}
-                  icon="✨"
-                  className="!w-[70%] !min-h-[44px] !shrink-0 !px-3 !py-2.5 !text-base !rounded-xl !border-b-4"
-                >
-                  שולח!
-                </BigButton>
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => digitKey(n))}
+                  </div>
+                  {(showSlash || showDot || showComma) && (
+                    <div className="flex gap-1.5 justify-center">
+                      {showSlash && (
+                        <button
+                          type="button"
+                          onClick={() => append("/")}
+                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                        >
+                          /
+                        </button>
+                      )}
+                      {showDot && (
+                        <button
+                          type="button"
+                          onClick={() => append(".")}
+                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                        >
+                          .
+                        </button>
+                      )}
+                      {showComma && (
+                        <button
+                          type="button"
+                          onClick={() => append(",")}
+                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                        >
+                          ,
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={backspace}
+                      className="min-h-[50px] rounded-2xl bg-gradient-to-br from-stone-300 to-stone-500 text-white text-lg font-black border-b-4 border-stone-700 shadow-md active:translate-y-0.5"
+                      aria-label="מחק"
+                    >
+                      מחק ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => append("0")}
+                      className={`min-h-[50px] rounded-2xl text-2xl font-black border-b-4 shadow-md active:translate-y-0.5 ${keyColors[4]}`}
+                    >
+                      0
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!answer.trim()}
+                      className="min-h-[50px] rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white text-base font-black border-b-4 border-amber-900 shadow-md active:translate-y-0.5 disabled:opacity-40 disabled:grayscale"
+                    >
+                      שלח ✨
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           ) : (
@@ -421,33 +460,21 @@ export function QuestionScreen() {
               <motion.div
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
-                className={`relative shrink-0 rounded-2xl px-4 py-2.5 shadow-lg border-2 max-w-md mx-auto w-full text-center pr-10 ${
+                className={`relative shrink-0 rounded-2xl px-4 py-2.5 shadow-lg border-2 max-w-md mx-auto w-full text-center ${
                   feedbackStatus === "correct"
                     ? "bg-emerald-50 border-emerald-400"
                     : feedbackStatus === "incorrect"
-                    ? "bg-sky-50 border-sky-300"
-                    : "bg-amber-50 border-amber-300"
+                      ? "bg-sky-50 border-sky-300"
+                      : "bg-amber-50 border-amber-300"
                 }`}
               >
-                {currentQuestionId && (
-                  <SpeechInlineButton
-                    slotKey={`feedback-${currentQuestionId}`}
-                    payload={{
-                      kind: "single",
-                      text: feedbackSpeechFull,
-                      personality: "guide",
-                    }}
-                    className="absolute top-2 right-2 z-[1] w-8 h-8 rounded-full bg-white/90 border border-stone-300 text-sm flex items-center justify-center active:scale-95 hover:bg-white shadow-sm"
-                    titleIdle="השמע עידוד"
-                  />
-                )}
                 <div
                   className={`text-lg font-black ${
                     feedbackStatus === "correct"
                       ? "text-emerald-700"
                       : feedbackStatus === "incorrect"
-                      ? "text-sky-700"
-                      : "text-amber-700"
+                        ? "text-sky-700"
+                        : "text-amber-700"
                   }`}
                 >
                   {feedbackMessage}
