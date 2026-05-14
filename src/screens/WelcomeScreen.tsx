@@ -4,7 +4,6 @@ import { Parrot } from "../components/Parrot";
 import { SpeechBubble } from "../components/SpeechBubble";
 import { BigButton } from "../components/BigButton";
 import { useGameStore } from "../store/gameStore";
-import { hasSeenIntro } from "../storage/storage";
 
 export function WelcomeScreen() {
   const navigate = useNavigate();
@@ -20,9 +19,6 @@ export function WelcomeScreen() {
   const goToLogin = () => {
     navigate("/login");
   };
-
-  // השארת המשתנה לשימוש עתידי (לעדכון הלוגיקה)
-  void hasSeenIntro;
 
   return (
     <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 relative">
