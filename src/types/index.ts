@@ -159,6 +159,10 @@ export interface QuestionAttempt {
   studentAnswer: string;
   status: AnswerStatus;
   timeMs: number;
+  /** אופציונלי: זמן מענה בשניות. אם חסר — מחושב מ־`timeMs` בלוגיקת adaptive. */
+  timeSeconds?: number;
+  /** ציון ביטחון לניסיון (זמן × נכונות), מחושב ב־`calculateConfidenceScore`. */
+  confidenceScore?: number;
   pausedMs: number;
   pauseCount: number;
   startedAt: number;

@@ -1,44 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Parrot } from "../components/Parrot";
 import { BigButton } from "../components/BigButton";
 import { useGameStore } from "../store/gameStore";
-import { PEARL_COLOR_CLASSES, PARROTS, getParrotByTopic } from "../data/parrots";
+import { getSkippedIslandsToRevisit } from "../data/adaptivePath";
+import { PEARL_COLOR_CLASSES, PARROTS, UNIQUE_PARROT_COUNT, getParrotByTopic } from "../data/parrots";
 import { PirateAvatar } from "../components/PirateAvatar";
 import { CagedParrot } from "../components/CagedParrot";
 import { IslandDetailModal } from "../components/IslandDetailModal";
+import { SpeechInlineButton } from "../components/SpeechInlineButton";
+import { useSpeech } from "../hooks/useSpeech";
 import type { Island, Topic } from "../types";
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-/** כמה איים מציגים בו-זמנית במפה. */
-const VISIBLE_WINDOW = 7;
-/** כמה איים שכבר עברו רואים מתחת לאי הנוכחי. */
-const PAST_VISIBLE = 2;
-
-/**
- * מייצר עמדות איים בנתיב מתפתל מלמטה למעלה.
- * האי האחרון (אינדקס count-1) הוא בתחתית, הראשון בראש.
- * אבל כאן אנחנו מקבלים את האיים בסדר התקדמות (עבר->עתיד),
- * כך ש- index 0 בתחתית (= האי הראשון בחלון = הכי "מאחור" בעבר).
- */
-function generateVerticalPositions(count: number): Point[] {
-  const points: Point[] = [];
-  if (count === 0) return points;
-  for (let i = 0; i < count; i++) {
-    const t = count === 1 ? 0.5 : i / (count - 1);
-    // y הולך מ-92 (למטה) ל-8 (למעלה)
-    const y = 92 - t * 84;
-    // x מתפתל ימינה-שמאלה כדי ליצור נתיב מעניין
-    const x = 50 + Math.sin(t * Math.PI * 2.2) * 30;
-    points.push({ x, y });
-  }
-  return points;
-}
+/** גודל אי (קוטר), מרווח אנכי בין איים, וגובה תצוגה — עד 3 איים בו-זמנית */
+const ISLAND_DIAMETER_PX = 80;
+const MIN_GAP_BETWEEN_ISLANDS_PX = 120;
+const ROW_STRIDE_PX = ISLAND_DIAMETER_PX + MIN_GAP_BETWEEN_ISLANDS_PX;
+const MAP_VIEWPORT_MAX_ISLANDS = 3;
+const MAP_SCROLL_MAX_HEIGHT_PX = MAP_VIEWPORT_MAX_ISLANDS * ROW_STRIDE_PX + 32;
 
 export function TreasureMapScreen() {
   const navigate = useNavigate();
@@ -46,12 +26,17 @@ export function TreasureMapScreen() {
   const session = useGameStore((s) => s.session);
   const islands = useGameStore((s) => s.islands);
   const inventory = useGameStore((s) => s.inventory);
-  const recentlyRescuedParrotId = useGameStore((s) => s.recentlyRescuedParrotId);
+  const recentlyRescuedEvent = useGameStore((s) => s.recentlyRescuedEvent);
   const clearRecentRescue = useGameStore((s) => s.clearRecentRescue);
+  const mapFeedback = useGameStore((s) => s.mapFeedback);
+  const clearMapFeedback = useGameStore((s) => s.clearMapFeedback);
+  const { speak, speakKeyed, stop } = useSpeech();
   const resumeSessionOrStartNew = useGameStore((s) => s.resumeSessionOrStartNew);
   const finishSession = useGameStore((s) => s.finishSession);
 
   const [selectedIsland, setSelectedIsland] = useState<Island | null>(null);
+  const mapScrollRef = useRef<HTMLDivElement | null>(null);
+  const islandRowRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
   useEffect(() => {
     if (profile && !session) {
@@ -63,39 +48,37 @@ export function TreasureMapScreen() {
   const currentIdx = session?.currentIslandIndex ?? 0;
   const completed = session?.completedAt != null;
 
-  /**
-   * מחשב את החלון הנראה - איזה אינדקסים גלובליים של איים מציגים עכשיו.
-   * הרעיון: כדי שהילד יראה התקדמות, הצג כמה איים שעברו (PAST_VISIBLE)
-   * + האי הנוכחי + שאר העתיד עד למילוי VISIBLE_WINDOW.
-   * האוצר מופיע בראש החלון רק כאשר באמת מתקרבים אליו.
-   */
-  const window = useMemo(() => {
-    if (totalIslands === 0) return { start: 0, end: 0, indices: [] as number[], showsTreasure: false };
-
-    const start = Math.max(0, currentIdx - PAST_VISIBLE);
-    const end = Math.min(totalIslands, start + VISIBLE_WINDOW);
-    // הזזה אם בקצה - שיהיה תמיד VISIBLE_WINDOW פריטים אם אפשר
-    const adjustedStart = Math.max(0, end - VISIBLE_WINDOW);
-    const indices: number[] = [];
-    for (let i = adjustedStart; i < end; i++) {
-      indices.push(i);
-    }
-    const showsTreasure = end === totalIslands;
-    return { start: adjustedStart, end, indices, showsTreasure };
-  }, [currentIdx, totalIslands]);
-
-  /**
-   * עמדות הציור: כמה נקודות יש בפועל במסך.
-   * אם החלון כולל את האי האחרון - מוסיפים עמדה נוספת לאוצר.
-   */
-  const drawCount = window.indices.length + (window.showsTreasure ? 1 : 0);
-  // הופכים את הסדר: באינדקס 0 (בתחתית) האי הראשון בחלון, באינדקס המקסימלי - האוצר/אי האחרון.
-  // generateVerticalPositions כבר מחזיר מלמטה למעלה.
-  const positions = useMemo(() => generateVerticalPositions(drawCount), [drawCount]);
+  /** נקודת אוצר בסוף הנתיב (תמיד אם יש איים) — גם אחרי סיום המסע */
+  const showsTreasure = totalIslands > 0;
+  const drawCount = showsTreasure ? totalIslands + 1 : 0;
 
   const currentIsland = session
     ? islands.find((i) => i.id === session.islandIds[session.currentIslandIndex])
     : undefined;
+
+  const skippedRevisitIslandIds = useMemo(() => {
+    if (!session || !profile || session.completedAt) return new Set<string>();
+    return new Set(
+      getSkippedIslandsToRevisit(
+        session.attempts,
+        session.islandIds,
+        islands,
+        profile.grade,
+        session.currentIslandIndex
+      )
+    );
+  }, [session, islands, profile]);
+
+  /** אי i (0..total-1) הושלם במסלול — עברנו אותו (לפני האי הנוכחי). */
+  const islandIndexCompleted = (globalIdx: number) => globalIdx < currentIdx;
+
+  /** פרוגרס עד האי הנוכחי: מונה 1-מבוסס מתוך כל האיים במסלול */
+  const progressLabel =
+    totalIslands > 0
+      ? `אי ${Math.min(currentIdx + 1, totalIslands)} מתוך ${totalIslands}`
+      : "";
+  const progressRatio =
+    totalIslands > 0 ? Math.min(1, Math.max(0, (currentIdx + 1) / totalIslands)) : 0;
 
   if (!profile) {
     navigate("/login", { replace: true });
@@ -104,7 +87,7 @@ export function TreasureMapScreen() {
 
   if (!session) {
     return (
-      <div className="min-h-full flex items-center justify-center">
+      <div className="h-full min-h-0 flex items-center justify-center">
         <Parrot mood="thinking" size={120} />
       </div>
     );
@@ -112,9 +95,84 @@ export function TreasureMapScreen() {
 
   const currentParrot = currentIsland ? getParrotByTopic(currentIsland.topic) : null;
   const rescuedCount = inventory.rescuedParrotIds.length;
+  const answeredInCurrentIsland = session.currentQuestionInIslandIndex;
+  const questionsInCurrentIsland = currentIsland?.questionIds.length ?? 0;
+
+  const mapGuideSpeechText = useMemo(() => {
+    if (completed) return "הגענו לאוצר! מסע מדהים!";
+    if (currentIsland && currentParrot) {
+      const islandShort = currentIsland.title.split(" (")[0];
+      return `לאי הבא: ${currentIsland.emoji} ${islandShort}. התוכי ${currentParrot.name} מחכה לעזרה. ${answeredInCurrentIsland} מתוך ${questionsInCurrentIsland} שאלות`;
+    }
+    return "בוא נתחיל!";
+  }, [
+    completed,
+    currentIsland,
+    currentParrot,
+    answeredInCurrentIsland,
+    questionsInCurrentIsland,
+  ]);
+
+  useEffect(() => {
+    speakKeyed("map-guide", mapGuideSpeechText, "guide");
+    return () => {
+      stop();
+    };
+  }, [mapGuideSpeechText, speakKeyed, stop]);
+
+  useEffect(() => {
+    if (!mapFeedback) return;
+    speak(mapFeedback, "guide");
+  }, [mapFeedback, speak]);
+
+  useEffect(() => {
+    if (!recentlyRescuedEvent || !profile) return;
+    const p = PARROTS[recentlyRescuedEvent.parrotId as Topic];
+    if (!p) return;
+    const tier = profile.grade <= 2 ? p.younger : p.older;
+    speakKeyed(
+      `rescue-${recentlyRescuedEvent.parrotId}`,
+      tier.free[0],
+      p.personality
+    );
+    return () => {
+      stop();
+    };
+  }, [recentlyRescuedEvent, profile, speakKeyed, stop]);
+
+  /** גלילה לאי הנוכחי (או לאוצר אחרי סיום) */
+  useLayoutEffect(() => {
+    if (!session || drawCount === 0) return;
+    const targetIdx = completed ? drawCount - 1 : Math.min(currentIdx, drawCount - 1);
+    const el = islandRowRefs.current.get(targetIdx);
+    const sc = mapScrollRef.current;
+    if (!el || !sc) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    });
+  }, [session, currentIdx, completed, drawCount, totalIslands]);
 
   return (
-    <div className="min-h-full flex flex-col px-3 py-3 relative">
+    <div className="h-full min-h-0 flex flex-col px-2 py-2 relative overflow-hidden" dir="rtl">
+      {mapFeedback && (
+        <div className="mb-2 shrink-0 w-full max-w-md mx-auto">
+          <div className="bg-violet-100 border-2 border-violet-400 rounded-2xl px-3 py-2 flex items-start gap-2 shadow">
+            <span className="text-lg shrink-0" aria-hidden>
+              🎯
+            </span>
+            <p className="text-xs font-bold text-violet-950 leading-snug flex-1 min-w-0">{mapFeedback}</p>
+            <button
+              type="button"
+              onClick={clearMapFeedback}
+              className="shrink-0 text-violet-600 font-black text-sm px-2 py-0.5 rounded-lg hover:bg-violet-200/80 active:scale-95"
+              aria-label="סגור הודעה"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* כותרת עליונה - בית + אוואטר + פנינים + חנות */}
       <div className="flex items-center justify-between gap-1 mb-2 shrink-0">
         <button
@@ -141,10 +199,36 @@ export function TreasureMapScreen() {
         </button>
       </div>
 
-      {/* תוכי + תיבה קומפקטית - לאי הבא */}
+      {/* פרוגרס מסלול */}
+      {!completed && totalIslands > 0 ? (
+        <div className="mb-2 shrink-0 w-full max-w-md mx-auto rounded-2xl bg-white/90 border-2 border-amber-200 px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-[11px] font-black text-amber-900">{progressLabel}</span>
+          </div>
+          <div dir="ltr">
+            <div
+              className="h-2.5 rounded-full bg-amber-100 overflow-hidden border border-amber-200/80"
+              role="progressbar"
+              aria-valuenow={Math.round(progressRatio * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="התקדמות במסלול האיים"
+            >
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500"
+                initial={false}
+                animate={{ width: `${progressRatio * 100}%` }}
+                transition={{ type: "spring", stiffness: 200, damping: 24 }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* תוכי + כרטיסיית האי הנוכחי */}
       <div className="flex items-center gap-2 mb-2 shrink-0 bg-white/90 rounded-2xl border-2 border-amber-300 shadow p-2">
         <Parrot size={48} mood={completed ? "celebrating" : "happy"} />
-        <div className="flex-1 text-sm font-bold text-stone-700 leading-tight">
+        <div className="flex-1 text-sm font-bold text-stone-700 leading-tight text-right min-w-0">
           {completed ? (
             <>🏆 הגענו לאוצר! מסע מדהים!</>
           ) : currentIsland && currentParrot ? (
@@ -155,21 +239,31 @@ export function TreasureMapScreen() {
                 {currentIsland.emoji} {currentIsland.title.split(" (")[0]}
               </span>
               <div className="text-xs text-stone-500">
-                התוכי <span className="font-black text-amber-700">{currentParrot.name}</span>
-                {" "}מחכה לעזרה · {currentIsland.questionIds.length} שאלות
+                התוכי <span className="font-black text-amber-700">{currentParrot.name}</span> מחכה לעזרה
               </div>
+              {questionsInCurrentIsland > 0 && (
+                <div className="text-xs font-black text-amber-800 mt-1 bg-amber-50 rounded-lg px-2 py-1 inline-block border border-amber-200">
+                  {answeredInCurrentIsland} מתוך {questionsInCurrentIsland} שאלות
+                </div>
+              )}
             </>
           ) : (
             <>בוא נתחיל!</>
           )}
         </div>
+        <SpeechInlineButton
+          slotKey="map-guide"
+          payload={{ kind: "single", text: mapGuideSpeechText, personality: "guide" }}
+          className="shrink-0 w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 text-base flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
+          titleIdle="השמע את הטקסט"
+        />
       </div>
 
       {/* רצועת תוכים שהוצלו */}
       {rescuedCount > 0 && (
-        <div className="flex items-center gap-1 mb-2 shrink-0 bg-white/70 rounded-xl px-2 py-1 overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-end gap-1 mb-2 shrink-0 bg-white/70 rounded-xl px-2 py-1 overflow-hidden">
           <span className="text-[10px] font-bold text-stone-600 whitespace-nowrap">
-            הוצלו ({rescuedCount}):
+            תוכים שונים ({rescuedCount}/{UNIQUE_PARROT_COUNT}):
           </span>
           {inventory.rescuedParrotIds.map((pid) => {
             const parrot = PARROTS[pid as Topic];
@@ -193,163 +287,171 @@ export function TreasureMapScreen() {
         </div>
       )}
 
-      {/* המפה - מלמטה למעלה */}
-      <div className="relative flex-1 bg-gradient-to-t from-sky-300 via-cyan-100 to-amber-50 rounded-3xl border-4 border-amber-300 shadow-inner overflow-hidden min-h-[480px]">
-        {/* גלים בתחתית (ים) */}
-        <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,88 Q15,84 30,88 T60,88 T100,88" stroke="#0891b2" strokeWidth="0.5" fill="none" />
-          <path d="M0,94 Q15,90 30,94 T60,94 T100,94" stroke="#0891b2" strokeWidth="0.5" fill="none" />
-        </svg>
+      {/* מפה — גלילה אנכית, זיגזג (Candy Crush), קו רק על מה שעברנו */}
+      <div
+        ref={mapScrollRef}
+        className="flex-1 min-h-0 min-h-[120px] overflow-y-auto overflow-x-hidden rounded-3xl border-4 border-amber-300 shadow-inner overscroll-y-contain"
+        style={{ maxHeight: `min(65dvh, ${MAP_SCROLL_MAX_HEIGHT_PX}px)` }}
+      >
+        {drawCount > 0 ? (
+          <div
+            className="relative mx-auto w-full max-w-md bg-gradient-to-b from-amber-50 via-cyan-100 to-sky-300"
+            style={{ minHeight: drawCount * ROW_STRIDE_PX + 32 }}
+          >
+            <div className="absolute top-3 start-4 text-2xl opacity-70 pointer-events-none z-[1]">☁️</div>
+            <div className="absolute top-8 end-6 text-xl opacity-60 pointer-events-none z-[1]">☁️</div>
 
-        {/* כמה עננים בראש */}
-        <div className="absolute top-2 left-4 text-2xl opacity-70">☁️</div>
-        <div className="absolute top-6 right-6 text-xl opacity-60">☁️</div>
-
-        {/* אינדיקטור - איים מאחור (אם יש) */}
-        {window.start > 0 && (
-          <div className="absolute bottom-1 right-2 bg-white/70 rounded-full px-2 py-0.5 text-[10px] font-bold text-stone-600">
-            ⬇ עוד {window.start} איים שעברנו
-          </div>
-        )}
-        {/* אינדיקטור - איים לפנינו (אם יש) */}
-        {!window.showsTreasure && (
-          <div className="absolute top-1 left-2 bg-white/70 rounded-full px-2 py-0.5 text-[10px] font-bold text-stone-600">
-            ⬆ עוד {totalIslands - window.end} איים בדרך
-          </div>
-        )}
-
-        {/* נתיב מקווקו בין איים */}
-        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {positions.map((p, i) => {
-            if (i === 0) return null;
-            const prev = positions[i - 1];
-            // האם הקטע הזה כבר עבר?
-            const localIdx = i; // המיקום בחלון, 0 = תחתון
-            const globalIdx = window.indices[localIdx] ?? totalIslands; // האוצר = totalIslands
-            const isPast = globalIdx <= currentIdx;
-            return (
-              <line
-                key={i}
-                x1={prev.x}
-                y1={prev.y}
-                x2={p.x}
-                y2={p.y}
-                stroke="#d97706"
-                strokeWidth="0.5"
-                strokeDasharray="2 1.5"
-                opacity={isPast ? 0.9 : 0.4}
-              />
-            );
-          })}
-        </svg>
-
-        {/* האיים */}
-        {positions.map((p, i) => {
-          const isTreasureSpot = window.showsTreasure && i === positions.length - 1;
-          const globalIdx = window.indices[i];
-          const island = !isTreasureSpot ? islands.find((isl) => isl.id === session.islandIds[globalIdx]) : undefined;
-          const isPast = globalIdx < currentIdx;
-          const isCurrent = !isTreasureSpot && globalIdx === currentIdx && !completed;
-          const isFuture = !isTreasureSpot && globalIdx > currentIdx;
-          // הצגת השעון בכל אי - כמה שאלות
-          const questionCount = island?.questionIds.length ?? 0;
-
-          return (
-            <motion.div
-              key={i}
-              className="absolute"
-              style={{ left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%, -50%)" }}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: i * 0.07, type: "spring" }}
+            <svg
+              className="absolute start-0 top-0 w-full pointer-events-none z-0"
+              style={{ height: drawCount * ROW_STRIDE_PX + 32 }}
+              viewBox={`0 0 100 ${drawCount * ROW_STRIDE_PX + 32}`}
+              preserveAspectRatio="none"
             >
-              <button
-                onClick={() => {
-                  if (island) setSelectedIsland(island);
-                }}
-                disabled={isTreasureSpot}
-                className="relative flex flex-col items-center bg-transparent border-0 p-0 cursor-pointer active:scale-95 disabled:cursor-default disabled:active:scale-100"
-                aria-label={island ? `פרטי האי ${island.title}` : "האוצר"}
-              >
+              {Array.from({ length: drawCount - 1 }, (_, seg) => {
+                const passed = completed || seg < currentIdx;
+                if (!passed) return null;
+                const rowSeg = drawCount - 1 - seg;
+                const rowNext = drawCount - 2 - seg;
+                const y1 = rowSeg * ROW_STRIDE_PX + ROW_STRIDE_PX / 2;
+                const y2 = rowNext * ROW_STRIDE_PX + ROW_STRIDE_PX / 2;
+                const x1 = seg % 2 === 0 ? 24 : 76;
+                const x2 = (seg + 1) % 2 === 0 ? 24 : 76;
+                return (
+                  <line
+                    key={`path-${seg}`}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="#ca8a04"
+                    strokeWidth={1.25}
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+            </svg>
+
+            {Array.from({ length: drawCount }, (_, rowFromTop) => {
+              const i = drawCount - 1 - rowFromTop;
+              const isTreasureSpot = showsTreasure && i === drawCount - 1;
+              const globalIdx = isTreasureSpot ? -1 : i;
+              const island = !isTreasureSpot
+                ? islands.find((isl) => isl.id === session.islandIds[globalIdx])
+                : undefined;
+
+              const isPast = !isTreasureSpot && islandIndexCompleted(globalIdx);
+              const isCurrent = !isTreasureSpot && globalIdx === currentIdx && !completed;
+              const isFuture = !isTreasureSpot && globalIdx > currentIdx;
+              const isSkippedRevisit = island && skippedRevisitIslandIds.has(island.id);
+              const questionCount = island?.questionIds.length ?? 0;
+              const lockFuture = isFuture && !completed;
+              const zigStart = i % 2 === 0;
+
+              return (
                 <div
-                  className={`text-5xl md:text-6xl select-none transition-all ${
-                    isFuture ? "grayscale opacity-60" : ""
-                  } ${isCurrent ? "drop-shadow-xl scale-110" : ""}`}
+                  key={isTreasureSpot ? "treasure" : `row-${session.islandIds[globalIdx]}`}
+                  ref={(el) => {
+                    if (el) islandRowRefs.current.set(i, el);
+                    else islandRowRefs.current.delete(i);
+                  }}
+                  className={`relative z-[2] flex items-start pt-2 ${
+                    zigStart ? "justify-start ps-4" : "justify-end pe-4"
+                  }`}
+                  style={{ minHeight: ROW_STRIDE_PX }}
                 >
-                  {isTreasureSpot ? "💎" : "🏝️"}
+                  <div className="relative flex w-[112px] flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (island && !lockFuture) setSelectedIsland(island);
+                      }}
+                      disabled={isTreasureSpot || !!lockFuture}
+                      className={`relative flex w-full flex-col items-center bg-transparent p-0 ${
+                        lockFuture ? "cursor-not-allowed opacity-80" : "cursor-pointer active:scale-95"
+                      } disabled:cursor-default`}
+                      aria-label={
+                        isTreasureSpot
+                          ? "האוצר"
+                          : island
+                            ? lockFuture
+                              ? `אי נעול — ${island.title}`
+                              : `פרטי האי ${island.title}`
+                            : "אי"
+                      }
+                    >
+                      {isPast && island && !isSkippedRevisit && (
+                        <div
+                          className="absolute -top-1 left-1/2 z-10 -translate-x-1/2 text-base leading-none drop-shadow-md"
+                          aria-hidden
+                        >
+                          <span className="text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.9)]">⭐</span>
+                        </div>
+                      )}
+                      {isPast && island && isSkippedRevisit && (
+                        <div
+                          className="absolute -top-1 left-1/2 z-10 -translate-x-1/2 text-sm leading-none"
+                          title="דילגת — נחזור לכאן"
+                          aria-hidden
+                        >
+                          🕐
+                        </div>
+                      )}
+
+                      <div
+                        className={`flex h-20 w-20 shrink-0 select-none items-center justify-center rounded-full border-4 text-3xl transition-all ${
+                          lockFuture ? "border-stone-300 bg-stone-100/80 grayscale blur-[0.5px]" : "border-amber-400 bg-white/95 shadow-md"
+                        } ${isCurrent ? "ring-4 ring-amber-300 ring-offset-2 ring-offset-cyan-50 scale-105" : ""}`}
+                      >
+                        {isTreasureSpot ? "💎" : "🏝️"}
+                      </div>
+
+                      {lockFuture && (
+                        <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 text-sm" aria-hidden>
+                          🔒
+                        </div>
+                      )}
+
+                      {island && (
+                        <p
+                          className={`mt-1.5 w-full max-w-[7.5rem] text-center text-[10px] font-bold leading-tight line-clamp-2 min-h-[2.5rem] ${
+                            isCurrent ? "text-amber-900" : isPast ? "text-emerald-800" : "text-stone-600"
+                          }`}
+                        >
+                          {island.emoji} {island.title.split(" (")[0]}
+                          <span className="block text-[9px] font-black opacity-80">· {questionCount}❓</span>
+                        </p>
+                      )}
+                      {isTreasureSpot && (
+                        <p className="mt-1.5 w-full max-w-[7.5rem] text-center text-[10px] font-black leading-tight line-clamp-2 text-amber-900">
+                          האוצר! 🏆
+                        </p>
+                      )}
+                    </button>
+
+                    {!completed && isCurrent && (
+                      <motion.div
+                        className="pointer-events-none absolute -top-2 left-1/2 z-20 -translate-x-1/2"
+                        animate={{ rotate: [-5, 5, -5], y: [0, -3, 0] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      >
+                        <div className="relative flex flex-col items-center">
+                          <div className="rounded-full border-2 border-amber-400 bg-white p-0.5 shadow">
+                            <PirateAvatar id={profile.pirateId} size={28} />
+                          </div>
+                          <div className="-mt-1 text-2xl drop-shadow-md">⛵</div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
-
-                {/* תווית האי + מספר שאלות */}
-                {island && (
-                  <div
-                    className={`absolute top-full mt-1 text-[11px] sm:text-xs font-bold whitespace-nowrap px-2 py-0.5 rounded-md shadow-sm ${
-                      isCurrent
-                        ? "bg-amber-400 text-white"
-                        : isPast
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-white/80 text-stone-600"
-                    }`}
-                  >
-                    {island.emoji} {island.title.split(" (")[0]}
-                    <span className="opacity-70"> · {questionCount}❓</span>
-                  </div>
-                )}
-                {isTreasureSpot && (
-                  <div className="absolute top-full mt-1 text-xs font-black whitespace-nowrap px-2 py-0.5 rounded-md bg-amber-500 text-white shadow">
-                    האוצר! 🏆
-                  </div>
-                )}
-
-                {isCurrent && (
-                  <motion.div
-                    className="absolute -top-4 -right-3 text-2xl"
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                  >
-                    📍
-                  </motion.div>
-                )}
-                {isPast && (
-                  <div className="absolute -top-1 -right-1 text-lg bg-emerald-500 rounded-full w-6 h-6 flex items-center justify-center text-white font-black border-2 border-white shadow">
-                    ✓
-                  </div>
-                )}
-              </button>
-            </motion.div>
-          );
-        })}
-
-        {/* ספינה עם הפיראט ליד האי הנוכחי */}
-        {!completed &&
-          (() => {
-            const localCurrentIdx = window.indices.indexOf(currentIdx);
-            if (localCurrentIdx === -1 || !positions[localCurrentIdx]) return null;
-            const pos = positions[localCurrentIdx];
-            return (
-              <motion.div
-                className="absolute pointer-events-none"
-                style={{
-                  left: `${pos.x - 10}%`,
-                  top: `${pos.y - 4}%`,
-                  transform: "translate(-50%, -50%)",
-                }}
-                animate={{ rotate: [-5, 5, -5], y: [0, -3, 0] }}
-                transition={{ duration: 2.5, repeat: Infinity }}
-              >
-                <div className="relative">
-                  {/* האווטר על הספינה */}
-                  <div className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white rounded-full p-0.5 border-2 border-amber-400 shadow">
-                    <PirateAvatar id={profile.pirateId} size={28} />
-                  </div>
-                  {/* הספינה */}
-                  <div className="text-4xl">⛵</div>
-                </div>
-              </motion.div>
-            );
-          })()}
+              );
+            })}
+          </div>
+        ) : null}
       </div>
 
-      <div className="mt-3 flex justify-center items-center gap-2 shrink-0">
+      <div className="mt-2 flex justify-center items-center gap-2 shrink-0">
         {completed ? (
           <BigButton
             size="lg"
@@ -368,9 +470,7 @@ export function TreasureMapScreen() {
               הפלגה לאי!
             </BigButton>
             <button
-              onClick={() =>
-                navigate("/intro", { state: { returnTo: "/map" } })
-              }
+              onClick={() => navigate("/intro", { state: { returnTo: "/map" } })}
               className="bg-white/80 hover:bg-white active:scale-95 rounded-full p-2 shadow text-xl shrink-0"
               title="לשמוע שוב את הסיפור"
               aria-label="לשמוע שוב את הסיפור"
@@ -381,11 +481,11 @@ export function TreasureMapScreen() {
         )}
       </div>
 
-      {/* מודאל פרטי האי - שיוצג כשלוחצים על אי במפה */}
       <AnimatePresence>
         {selectedIsland && (
           <IslandDetailModal
             island={selectedIsland}
+            playerGrade={profile.grade}
             status={(() => {
               const idx = session.islandIds.indexOf(selectedIsland.id);
               if (idx < currentIdx) return "past";
@@ -406,9 +506,8 @@ export function TreasureMapScreen() {
         )}
       </AnimatePresence>
 
-      {/* פופאפ: הצלת תוכי */}
       <AnimatePresence>
-        {recentlyRescuedParrotId && (
+        {recentlyRescuedEvent && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -423,7 +522,6 @@ export function TreasureMapScreen() {
               transition={{ type: "spring", stiffness: 200 }}
               className="bg-white rounded-3xl p-6 max-w-sm shadow-2xl border-4 border-amber-400 text-center relative"
             >
-              {/* כוכבים סביב */}
               {[..."✨🌟⭐✨🌟"].map((emoji, i) => (
                 <motion.span
                   key={i}
@@ -440,17 +538,19 @@ export function TreasureMapScreen() {
               ))}
 
               <div className="text-amber-700 font-black text-xl mb-2">
-                🎉 הצלת תוכי-פיראט! 🎉
+                {recentlyRescuedEvent.isNewToCrew ? "🎉 הצלת תוכי-פיראט! 🎉" : "🎉 סיימת אי נוסף! 🎉"}
               </div>
-              {/* הפיראט והתוכי - יחד! */}
-              <div className="flex items-center justify-center gap-2 my-3">
+              <p className="text-xs text-stone-600 leading-relaxed px-1 mb-2">
+                עשרה חברי-תוכי (אחד לכל נושא). בכל אי — אותו חבר ברמת כיתה אחרת, לכן יש הרבה איים ורק עשר דמויות.
+              </p>
+              <div className="flex items-center justify-center gap-2 my-3 flex-row-reverse">
                 <div className="bg-gradient-to-br from-sky-100 to-cyan-200 rounded-full p-1 border-2 border-amber-400">
                   <PirateAvatar id={profile.pirateId} size={56} />
                 </div>
                 <div className="text-3xl">🤝</div>
                 <div>
                   <CagedParrot
-                    topic={recentlyRescuedParrotId as Topic}
+                    topic={recentlyRescuedEvent.parrotId as Topic}
                     size={70}
                     state="free"
                     showPearl
@@ -458,25 +558,17 @@ export function TreasureMapScreen() {
                 </div>
               </div>
               {(() => {
-                const parrot = PARROTS[recentlyRescuedParrotId as Topic];
+                const parrot = PARROTS[recentlyRescuedEvent.parrotId as Topic];
                 if (!parrot) return null;
                 const tier = profile.grade <= 2 ? parrot.younger : parrot.older;
                 const freeMsg = tier.free[0];
                 return (
                   <>
-                    <div className="text-2xl font-black text-stone-800">
-                      {parrot.name}
-                    </div>
-                    <div className="text-sm text-stone-600 my-2 px-2">
-                      &ldquo;{freeMsg}&rdquo;
-                    </div>
-                    <div className="text-xs text-stone-500 italic px-2">
-                      ⚡ {parrot.power}
-                    </div>
+                    <div className="text-2xl font-black text-stone-800">{parrot.name}</div>
+                    <div className="text-sm text-stone-600 my-2 px-2">&ldquo;{freeMsg}&rdquo;</div>
+                    <div className="text-xs text-stone-500 italic px-2">⚡ {parrot.power}</div>
                     <div className="flex items-center justify-center gap-2 my-3">
-                      <span className="text-xs font-bold text-stone-500">
-                        קיבלת פנינת
-                      </span>
+                      <span className="text-xs font-bold text-stone-500">קיבלת פנינת</span>
                       <div
                         className={`w-7 h-7 rounded-full bg-gradient-to-br ${
                           PEARL_COLOR_CLASSES[parrot.id as Topic]
@@ -487,12 +579,7 @@ export function TreasureMapScreen() {
                   </>
                 );
               })()}
-              <BigButton
-                size="md"
-                variant="primary"
-                onClick={clearRecentRescue}
-                icon="⛵"
-              >
+              <BigButton size="md" variant="primary" onClick={clearRecentRescue} icon="⛵">
                 ממשיכים!
               </BigButton>
             </motion.div>

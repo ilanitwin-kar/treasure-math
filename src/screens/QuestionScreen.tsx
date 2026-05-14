@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { SpeechBubble } from "../components/SpeechBubble";
+import { SpeechInlineButton } from "../components/SpeechInlineButton";
 import { BigButton } from "../components/BigButton";
 import { useGameStore } from "../store/gameStore";
 import { getQuestionById } from "../data/questions";
 import { useQuestionTimer } from "../hooks/useQuestionTimer";
+import { useSpeech } from "../hooks/useSpeech";
 import { praiseForCorrect, praiseForSkip, praiseForTrying } from "../data/praise";
 import { QuestionVisualRenderer } from "../components/visuals/QuestionVisualRenderer";
 import { PEARL_COLOR_CLASSES, getParrotByTopic, getParrotSpeechForQuestion } from "../data/parrots";
@@ -28,6 +30,7 @@ function isCalculation(text: string): boolean {
 
 export function QuestionScreen() {
   const navigate = useNavigate();
+  const { speakSequentialKeyed, speakKeyed, stop } = useSpeech();
   const profile = useGameStore((s) => s.profile);
   const session = useGameStore((s) => s.session);
   const islands = useGameStore((s) => s.islands);
@@ -53,6 +56,66 @@ export function QuestionScreen() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { snapshot } = useQuestionTimer(phase === "asking");
+
+  const parrot = useMemo(
+    () => (currentIsland ? getParrotByTopic(currentIsland.topic) : null),
+    [currentIsland]
+  );
+
+  const totalInIslandSafe = currentIsland?.questionIds.length ?? 0;
+
+  const parrotSpeech = useMemo(() => {
+    if (!currentIsland || !session || !profile) return "";
+    return getParrotSpeechForQuestion(
+      currentIsland.topic,
+      profile.grade,
+      session.currentQuestionInIslandIndex,
+      totalInIslandSafe
+    );
+  }, [
+    currentIsland,
+    session,
+    profile,
+    session?.currentQuestionInIslandIndex,
+    totalInIslandSafe,
+  ]);
+
+  const feedbackSpeechFull = useMemo(() => {
+    if (!question) return "";
+    if (feedbackStatus === "incorrect") {
+      return `${feedbackMessage} התשובה הנכונה הייתה: ${question.answer}`;
+    }
+    return feedbackMessage;
+  }, [feedbackMessage, feedbackStatus, question]);
+
+  useEffect(() => {
+    if (!question || !parrot || !parrotSpeech || !currentQuestionId) return;
+    if (phase !== "asking") return;
+    speakSequentialKeyed(`ask-${currentQuestionId}`, [
+      { text: parrotSpeech, personality: parrot.personality },
+      { text: question.text, personality: parrot.personality },
+    ]);
+    return () => {
+      stop();
+    };
+  }, [
+    phase,
+    currentQuestionId,
+    parrotSpeech,
+    question,
+    parrot,
+    speakSequentialKeyed,
+    stop,
+  ]);
+
+  useEffect(() => {
+    if (!question || !currentQuestionId) return;
+    if (phase !== "feedback" || !feedbackMessage) return;
+    speakKeyed(`feedback-${currentQuestionId}`, feedbackSpeechFull, "guide");
+    return () => {
+      stop();
+    };
+  }, [phase, feedbackMessage, feedbackSpeechFull, speakKeyed, stop, question, currentQuestionId]);
 
   useEffect(() => {
     setAnswer(session?.draftAnswer ?? "");
@@ -145,14 +208,6 @@ export function QuestionScreen() {
   const islandNum = session.currentIslandIndex + 1;
   const totalIslands = session.islandIds.length;
 
-  const parrot = getParrotByTopic(currentIsland.topic);
-  const parrotSpeech = getParrotSpeechForQuestion(
-    currentIsland.topic,
-    profile.grade,
-    session.currentQuestionInIslandIndex,
-    totalInIsland
-  );
-
   // כמה תשובות נכונות באי הזה (לחישוב כמה סורגים נשברו)
   const correctInIsland = session.attempts.filter(
     (a) => a.islandId === currentIsland.id && a.status === "correct"
@@ -175,243 +230,300 @@ export function QuestionScreen() {
   const isNumericQuestion = question.kind !== "shape" || /^\d+$/.test(question.answer);
 
   return (
-    <div className="min-h-full flex flex-col px-4 py-4">
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <div className="flex items-center gap-1">
+    <div
+      dir="rtl"
+      className="h-full min-h-0 max-h-[100dvh] overflow-hidden flex flex-col px-2 pt-2 pb-2 w-full max-w-lg mx-auto"
+    >
+      <header className="shrink-0 flex items-center justify-between gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1 shrink-0">
           <button
+            type="button"
             onClick={() => navigate("/map")}
-            className="bg-white/90 rounded-full w-10 h-10 shadow font-bold text-stone-700 flex items-center justify-center text-lg active:scale-95"
+            className="bg-white/90 rounded-full w-9 h-9 shadow font-bold text-stone-700 flex items-center justify-center text-base active:scale-95"
             title="חזרה למפה"
             aria-label="חזרה למפה"
           >
             🗺️
           </button>
           <button
+            type="button"
             onClick={handlePause}
-            className="bg-white/90 rounded-full px-3 py-2 shadow font-bold text-stone-700 flex items-center gap-1.5 active:scale-95"
+            className="bg-white/90 rounded-full px-2 py-1.5 shadow font-bold text-stone-700 flex items-center gap-1 active:scale-95 text-xs"
           >
-            <span className="text-lg">⏸</span>
-            <span className="text-sm">השהה</span>
+            <span className="text-base">⏸</span>
+            <span>השהה</span>
           </button>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="bg-amber-400/90 text-white rounded-full px-3 py-1 shadow text-sm font-bold flex items-center gap-1">
+        <div className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
+          <div className="bg-amber-400/90 text-white rounded-full px-2 py-0.5 shadow text-xs font-bold flex items-center gap-1 max-w-full truncate">
             <span>{currentIsland.emoji}</span>
-            <span>{currentIsland.title}</span>
+            <span className="truncate">{currentIsland.title}</span>
           </div>
-          <div className="text-xs text-stone-700 font-bold bg-white/70 rounded-full px-3 py-0.5">
-            שאלה {questionInIsland} מתוך {totalInIsland} | אי {islandNum}/{totalIslands}
+          <div className="text-[10px] text-stone-700 font-bold bg-white/70 rounded-full px-2 py-0.5 whitespace-nowrap">
+            שאלה {questionInIsland}/{totalInIsland} · אי {islandNum}/{totalIslands}
           </div>
         </div>
-        {/* אווטר הפיראט - בפינה */}
-        <div className="flex flex-col items-center bg-white/90 rounded-full p-1 shadow">
-          <PirateAvatar id={profile.pirateId} size={36} />
+        <div className="shrink-0 flex flex-col items-center bg-white/90 rounded-full p-0.5 shadow">
+          <PirateAvatar id={profile.pirateId} size={32} />
         </div>
-      </div>
+      </header>
 
-      <AnimatePresence mode="wait">
-        {phase === "asking" ? (
-          <motion.div
-            key={`ask-${currentQuestionId}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex-1 flex flex-col items-center justify-center"
-          >
-            <div className="flex items-end gap-2 mb-3 max-w-md w-full">
-              <div className="shrink-0 flex flex-col items-center">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <AnimatePresence mode="wait">
+          {phase === "asking" ? (
+            <motion.div
+              key={`ask-${currentQuestionId}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-1 flex-col min-h-0 overflow-hidden"
+            >
+              <div className="flex shrink-0 gap-1.5 mb-1.5 min-h-0 max-h-[22vh] items-end">
+                <div className="shrink-0 flex flex-col items-center">
+                  <CagedParrot
+                    topic={currentIsland.topic}
+                    size={64}
+                    correctSoFar={correctInIsland}
+                    totalQuestions={totalInIsland}
+                    state={cageState}
+                  />
+                  <div className="text-[9px] font-black text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5 mt-0.5 whitespace-nowrap max-w-[4.5rem] truncate">
+                    {parrot?.name}
+                  </div>
+                </div>
+                <SpeechBubble
+                  pointerSide="right"
+                  className="px-3 py-2 border-2 min-w-0 flex-1 max-h-[22vh] overflow-hidden"
+                  innerTextClassName="text-xs leading-snug"
+                  speechReplay={
+                    parrot && parrotSpeech && currentQuestionId
+                      ? {
+                          slotKey: `ask-${currentQuestionId}`,
+                          kind: "sequential",
+                          parts: [
+                            { text: parrotSpeech, personality: parrot.personality },
+                            { text: question.text, personality: parrot.personality },
+                          ],
+                        }
+                      : undefined
+                  }
+                >
+                  {parrotSpeech}
+                </SpeechBubble>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border-2 border-amber-300 bg-white p-2.5 shadow-md overflow-hidden mb-2">
+                {question.visual && (
+                  <div className="flex shrink-0 justify-center max-h-[min(18vh,140px)] min-h-0 items-center overflow-hidden mb-1.5">
+                    <div className="max-h-full scale-[0.88] origin-center flex items-center justify-center">
+                      <QuestionVisualRenderer visual={question.visual} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="relative shrink-0">
+                  {parrot && currentQuestionId && (
+                    <SpeechInlineButton
+                      slotKey={`ask-qtext-${currentQuestionId}`}
+                      payload={{
+                        kind: "single",
+                        text: question.text,
+                        personality: parrot.personality,
+                      }}
+                      className="absolute top-0 left-0 z-[1] w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
+                      titleIdle="השמע את השאלה"
+                    />
+                  )}
+                  <div
+                    className="shrink-0 text-center text-base sm:text-lg font-black text-stone-800 mb-1.5 leading-snug line-clamp-3 pt-1"
+                    dir={isCalculation(question.text) ? "ltr" : "rtl"}
+                  >
+                    {question.text}
+                  </div>
+                </div>
+
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode={isNumericQuestion ? "numeric" : "text"}
+                  pattern={isNumericQuestion ? "[0-9]*" : undefined}
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                  }}
+                  placeholder="התשובה שלי..."
+                  className="w-full shrink-0 text-center text-lg py-2 bg-amber-50 border-2 border-amber-200 rounded-xl px-2 focus:border-amber-400 focus:outline-none font-black text-stone-800"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="mt-auto shrink-0 flex w-full max-w-md mx-auto gap-2 items-stretch">
+                <BigButton
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleSkip}
+                  icon="⏭"
+                  className="!w-[25%] !min-h-[44px] !shrink-0 !px-1 !py-2 !text-xs !rounded-xl !border-b-2"
+                >
+                  דלג
+                </BigButton>
+                <BigButton
+                  size="md"
+                  variant="primary"
+                  onClick={handleSubmit}
+                  disabled={!answer.trim()}
+                  icon="✨"
+                  className="!w-[70%] !min-h-[44px] !shrink-0 !px-3 !py-2.5 !text-base !rounded-xl !border-b-4"
+                >
+                  שולח!
+                </BigButton>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="feedback"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-1 flex-col min-h-0 overflow-hidden gap-1.5"
+            >
+              <div className="relative shrink-0 flex justify-center max-h-[32vh]">
                 <CagedParrot
                   topic={currentIsland.topic}
-                  size={95}
-                  correctSoFar={correctInIsland}
+                  size={100}
+                  correctSoFar={
+                    feedbackStatus === "correct" ? correctInIsland + 1 : correctInIsland
+                  }
                   totalQuestions={totalInIsland}
                   state={cageState}
                 />
-                <div className="text-[10px] font-black text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 mt-0.5 whitespace-nowrap">
-                  {parrot.name}
-                </div>
-              </div>
-              <SpeechBubble pointerSide="right" className="text-xs">
-                {parrotSpeech}
-              </SpeechBubble>
-            </div>
-
-            <motion.div
-              className="bg-white rounded-3xl shadow-2xl border-4 border-amber-300 p-5 w-full max-w-md"
-              animate={{ rotate: [0, 0.5, 0, -0.5, 0] }}
-              transition={{ duration: 6, repeat: Infinity }}
-            >
-              {/* תצוגת השאלה הויזואלית - שעון, ספירה, צורה */}
-              {question.visual && (
-                <div className="flex justify-center mb-4">
-                  <QuestionVisualRenderer visual={question.visual} />
-                </div>
-              )}
-
-              <div
-                className="text-center text-2xl md:text-3xl font-black text-stone-800 mb-5 leading-snug"
-                dir={isCalculation(question.text) ? "ltr" : "rtl"}
-              >
-                {question.text}
+                {feedbackStatus === "correct" && (
+                  <>
+                    {[..."🌟⭐✨"].map((emoji, i) => (
+                      <motion.span
+                        key={i}
+                        className="absolute text-2xl pointer-events-none"
+                        style={{ left: `${15 + i * 22}%`, top: -8 }}
+                        initial={{ y: 0, opacity: 1, scale: 0 }}
+                        animate={{ y: 56, opacity: 0, scale: 1.2 }}
+                        transition={{ duration: 1, delay: i * 0.08 }}
+                      >
+                        {emoji}
+                      </motion.span>
+                    ))}
+                  </>
+                )}
               </div>
 
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode={isNumericQuestion ? "numeric" : "text"}
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmit();
-                }}
-                placeholder="התשובה שלי..."
-                className="w-full text-2xl text-center bg-amber-50 border-4 border-amber-200 rounded-2xl px-4 py-3 focus:border-amber-400 focus:outline-none font-black text-stone-800"
-                autoComplete="off"
-              />
-            </motion.div>
-
-            <div className="flex gap-3 mt-6">
-              <BigButton size="md" variant="ghost" onClick={handleSkip} icon="⏭">
-                דלג
-              </BigButton>
-              <BigButton
-                size="lg"
-                variant="primary"
-                onClick={handleSubmit}
-                disabled={!answer.trim()}
-                icon="✨"
-              >
-                שולח!
-              </BigButton>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="feedback"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="flex-1 flex flex-col items-center justify-center gap-4"
-          >
-            {/* תוכי בכלוב - עם מצב מתאים (מתפוצץ אם זו השאלה האחרונה ונכונה) */}
-            <div className="relative">
-              <CagedParrot
-                topic={currentIsland.topic}
-                size={140}
-                correctSoFar={
-                  feedbackStatus === "correct" ? correctInIsland + 1 : correctInIsland
-                }
-                totalQuestions={totalInIsland}
-                state={cageState}
-              />
-              {/* אנימציית כוכבים - רק לתשובה נכונה */}
-              {feedbackStatus === "correct" && (
-                <>
-                  {[..."🌟⭐✨🎉🌟"].map((emoji, i) => (
-                    <motion.span
-                      key={i}
-                      className="absolute text-3xl pointer-events-none"
-                      style={{ left: `${10 + i * 18}%`, top: -20 }}
-                      initial={{ y: 0, opacity: 1, scale: 0 }}
-                      animate={{ y: 100, opacity: 0, scale: 1.5 }}
-                      transition={{ duration: 1.2, delay: i * 0.1 }}
-                    >
-                      {emoji}
-                    </motion.span>
-                  ))}
-                </>
-              )}
-            </div>
-
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring" }}
-              className={`rounded-3xl px-7 py-4 shadow-xl border-4 max-w-md text-center ${
-                feedbackStatus === "correct"
-                  ? "bg-emerald-50 border-emerald-400"
-                  : feedbackStatus === "incorrect"
-                  ? "bg-sky-50 border-sky-300"
-                  : "bg-amber-50 border-amber-300"
-              }`}
-            >
-              <div
-                className={`text-2xl font-black ${
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                className={`relative shrink-0 rounded-2xl px-4 py-2.5 shadow-lg border-2 max-w-md mx-auto w-full text-center pr-10 ${
                   feedbackStatus === "correct"
-                    ? "text-emerald-700"
+                    ? "bg-emerald-50 border-emerald-400"
                     : feedbackStatus === "incorrect"
-                    ? "text-sky-700"
-                    : "text-amber-700"
+                    ? "bg-sky-50 border-sky-300"
+                    : "bg-amber-50 border-amber-300"
                 }`}
               >
-                {feedbackMessage}
-              </div>
-              {/* לתשובה לא נכונה - מציגים את התשובה הנכונה (חשוב ללמידה) */}
-              {feedbackStatus === "incorrect" && (
-                <div className="text-stone-600 text-base mt-2">
-                  התשובה הנכונה הייתה:{" "}
-                  <span className="font-black text-stone-800" dir="ltr">
-                    {question.answer}
-                  </span>
-                </div>
-              )}
-            </motion.div>
-
-            {/* אנימציית הענקת פנינים */}
-            <motion.div
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, type: "spring" }}
-              className="flex items-center gap-3 bg-white rounded-full px-5 py-2 shadow border-2 border-amber-200"
-            >
-              <div className="text-stone-700 font-bold text-sm">
-                {pearlsEarned > 1 ? "קיבלת" : "קיבלת"}
-              </div>
-              {Array.from({ length: pearlsEarned }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.5 + i * 0.15, type: "spring", stiffness: 200 }}
-                  className={`w-8 h-8 rounded-full bg-gradient-to-br ${
-                    PEARL_COLOR_CLASSES[question.topic]
-                  } shadow-lg border-2 border-white flex items-center justify-center`}
+                {currentQuestionId && (
+                  <SpeechInlineButton
+                    slotKey={`feedback-${currentQuestionId}`}
+                    payload={{
+                      kind: "single",
+                      text: feedbackSpeechFull,
+                      personality: "guide",
+                    }}
+                    className="absolute top-2 right-2 z-[1] w-8 h-8 rounded-full bg-white/90 border border-stone-300 text-sm flex items-center justify-center active:scale-95 hover:bg-white shadow-sm"
+                    titleIdle="השמע עידוד"
+                  />
+                )}
+                <div
+                  className={`text-lg font-black ${
+                    feedbackStatus === "correct"
+                      ? "text-emerald-700"
+                      : feedbackStatus === "incorrect"
+                      ? "text-sky-700"
+                      : "text-amber-700"
+                  }`}
                 >
-                  <div className="w-3 h-3 rounded-full bg-white/40" />
-                </motion.div>
-              ))}
-              <div className="text-amber-700 font-black text-base">
-                {pearlsEarned > 1 ? `${pearlsEarned} פנינים!` : "פנינה!"}
-              </div>
-            </motion.div>
+                  {feedbackMessage}
+                </div>
+                {feedbackStatus === "incorrect" && (
+                  <div className="text-stone-600 text-sm mt-1.5 leading-snug">
+                    התשובה הנכונה הייתה:{" "}
+                    <span className="font-black text-stone-800" dir="ltr">
+                      {question.answer}
+                    </span>
+                  </div>
+                )}
+              </motion.div>
 
-            {/* הצגת התוכי + מסר התקדמות */}
-            <div className="text-center text-sm text-stone-600 font-bold bg-white/70 rounded-2xl px-4 py-2 border-2 border-amber-200">
-              {(() => {
-                const isLast = questionInIsland >= totalInIsland;
-                if (isLast) {
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="shrink-0 flex items-center justify-center gap-2 bg-white rounded-full px-3 py-1.5 shadow border border-amber-200 max-w-md mx-auto w-full"
+              >
+                <div className="text-stone-700 font-bold text-xs">קיבלת</div>
+                {Array.from({ length: pearlsEarned }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2 + i * 0.08, type: "spring", stiffness: 220 }}
+                    className={`w-6 h-6 rounded-full bg-gradient-to-br ${
+                      PEARL_COLOR_CLASSES[question.topic]
+                    } shadow border-2 border-white flex items-center justify-center shrink-0`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-white/40" />
+                  </motion.div>
+                ))}
+                <div className="text-amber-700 font-black text-sm">
+                  {pearlsEarned > 1 ? `${pearlsEarned} פנינים` : "פנינה"}
+                </div>
+              </motion.div>
+
+              <div className="shrink-0 text-center text-[11px] text-stone-600 font-bold bg-white/70 rounded-xl px-2 py-1 border border-amber-200 max-w-md mx-auto w-full line-clamp-2">
+                {(() => {
+                  const isLast = questionInIsland >= totalInIsland;
+                  if (isLast) {
+                    return (
+                      <>
+                        🎉 <span className="text-amber-700">{parrot!.name}</span> משתחרר מהכלוב!
+                      </>
+                    );
+                  }
+                  const remaining = totalInIsland - questionInIsland;
                   return (
                     <>
-                      🎉 <span className="text-amber-700">{parrot.name}</span> משתחרר מהכלוב!
+                      <span className="text-amber-700">{parrot!.name}</span>: עוד{" "}
+                      <span className="text-amber-700">{remaining}</span> חידות לחופש! 🦜
                     </>
                   );
-                }
-                const remaining = totalInIsland - questionInIsland;
-                return (
-                  <>
-                    <span className="text-amber-700">{parrot.name}</span> אומר/ת:
-                    {" "}עוד <span className="text-amber-700">{remaining}</span> חידות ואני חופשי בזכותך! 🦜
-                  </>
-                );
-              })()}
-            </div>
+                })()}
+              </div>
 
-            <BigButton size="lg" variant="primary" onClick={handleNext} icon="⛵">
-              {questionInIsland < totalInIsland ? "לחידה הבאה באי!" : "להציל את התוכי!"}
-            </BigButton>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="flex-1 min-h-0" aria-hidden />
+
+              <div className="shrink-0 pt-1 w-full max-w-md mx-auto">
+                <BigButton
+                  size="md"
+                  variant="primary"
+                  onClick={handleNext}
+                  icon="⛵"
+                  className="!w-full !py-3 !text-base !rounded-2xl"
+                >
+                  {questionInIsland < totalInIsland ? "לחידה הבאה באי!" : "להציל את התוכי!"}
+                </BigButton>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

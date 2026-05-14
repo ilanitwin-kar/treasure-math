@@ -100,4 +100,12 @@ export const GRADE_4_QUESTIONS: Question[] = [
   { id: "g4_time_weeks_in_year", text: "כמה שבועות יש (בערך) בשנה?", answer: "52", topic: "time", difficulty: 4, grade: 4 },
   { id: "g4_time_days_in_year", text: "כמה ימים יש בשנה רגילה?", answer: "365", topic: "time", difficulty: 4, grade: 4 },
   { id: "g4_time_months", text: "כמה חודשים יש בשנה?", answer: "12", topic: "time", difficulty: 4, grade: 4 },
+  { id: "g4_time_hours_day", text: "כמה שעות יש ביממה?", answer: "24", topic: "time", difficulty: 4, grade: 4 },
+
+  // ===== ספירה ויזואלית =====
+  { id: "g4_count_36", text: "כמה כוכבים יש כאן?", answer: "36", topic: "counting", difficulty: 4, grade: 4, kind: "counting", visual: { type: "counting", emoji: "⭐", count: 36 } },
+  { id: "g4_count_40", text: "כמה תפוחים יש כאן?", answer: "40", topic: "counting", difficulty: 4, grade: 4, kind: "counting", visual: { type: "counting", emoji: "🍎", count: 40 } },
+  { id: "g4_count_42", text: "כמה דגים יש כאן?", answer: "42", topic: "counting", difficulty: 4, grade: 4, kind: "counting", visual: { type: "counting", emoji: "🐠", count: 42 } },
+  { id: "g4_count_45", text: "כמה פרחים יש כאן?", answer: "45", topic: "counting", difficulty: 4, grade: 4, kind: "counting", visual: { type: "counting", emoji: "🌸", count: 45 } },
+  { id: "g4_count_48", text: "כמה בלונים יש כאן?", answer: "48", topic: "counting", difficulty: 4, grade: 4, kind: "counting", visual: { type: "counting", emoji: "🎈", count: 48 } },
 ];

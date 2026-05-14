@@ -14,6 +14,7 @@ import {
   type StudentReport,
 } from "../data/teacherInsights";
 import type { StudentProfile } from "../types";
+import { UNIQUE_PARROT_COUNT } from "../data/parrots";
 
 /**
  * סיסמה לכניסה לדשבורד המורה.
@@ -65,7 +66,7 @@ export function TeacherDashboardScreen() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 bg-gradient-to-b from-slate-100 to-slate-200">
+      <div className="h-full min-h-0 overflow-hidden flex flex-col items-center justify-center px-4 py-6 bg-gradient-to-b from-slate-100 to-slate-200">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -131,9 +132,9 @@ export function TeacherDashboardScreen() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 px-3 py-3 pb-10">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-slate-50 px-2 py-2">
       {/* כותרת */}
-      <div className="flex items-center justify-between mb-3 sticky top-0 bg-slate-50 py-2 z-10">
+      <div className="flex items-center justify-between mb-2 shrink-0 bg-slate-50 py-1 z-10">
         <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
           👩‍🏫 לוח המורה
         </h1>
@@ -155,7 +156,7 @@ export function TeacherDashboardScreen() {
       </div>
 
       {/* הסבר על איך הנתונים מתעדכנים */}
-      <div className="bg-sky-50 border-2 border-sky-200 rounded-xl p-2 mb-3 text-xs text-sky-900 flex items-center gap-2">
+      <div className="bg-sky-50 border-2 border-sky-200 rounded-lg p-1.5 mb-2 text-[11px] text-sky-900 flex items-center gap-2 shrink-0 leading-tight">
         <span className="text-lg">ℹ️</span>
         <span>
           הנתונים מתעדכנים אוטומטית בכל פעם שהילד עונה על שאלה.
@@ -163,9 +164,10 @@ export function TeacherDashboardScreen() {
         </span>
       </div>
 
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-2">
       {!selectedProfile ? (
         // ============= רשימת ילדים =============
-        <div>
+        <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
           <p className="text-slate-600 mb-3 text-sm">
             בחרי תלמיד כדי לראות דוח מפורט
           </p>
@@ -179,7 +181,7 @@ export function TeacherDashboardScreen() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-h-0 overflow-hidden auto-rows-min content-start">
               {profiles.map((profile) => {
                 const sessions = loadSessionsForStudent(profile.id);
                 const allAttempts = sessions.flatMap((s) => s.attempts);
@@ -246,7 +248,7 @@ export function TeacherDashboardScreen() {
         </div>
       ) : report ? (
         // ============= דוח מפורט =============
-        <div className="space-y-3">
+        <div className="space-y-2 min-h-0 flex-1 overflow-hidden flex flex-col">
           <button
             onClick={() => setSelectedStudentId(null)}
             className="text-sm font-bold text-slate-600 mb-2 active:scale-95"
@@ -313,7 +315,9 @@ export function TeacherDashboardScreen() {
             {inventory && (
               <div className="mt-2 text-sm text-slate-600 bg-slate-50 rounded-xl p-2">
                 💎 צבר <span className="font-black text-amber-700">{inventory.pearls}</span> פנינים ·
-                הציל <span className="font-black text-emerald-700">{inventory.rescuedParrotIds.length}</span> תוכים
+                הציל{" "}
+                <span className="font-black text-emerald-700">{inventory.rescuedParrotIds.length}</span> מתוך{" "}
+                {UNIQUE_PARROT_COUNT} תוכים (דמות לכל נושא — לא מספר האיים)
               </div>
             )}
           </div>
@@ -434,53 +438,66 @@ export function TeacherDashboardScreen() {
               <h3 className="font-black text-slate-800 mb-3">
                 ❌ טעויות ({report.incorrectAttempts.length})
               </h3>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {report.incorrectAttempts.map((d, i) => (
-                  <div key={i} className="bg-red-50 rounded-xl p-2 text-sm">
+              <div className="space-y-1.5 max-h-[22vh] overflow-hidden">
+                {report.incorrectAttempts.slice(0, 6).map((d, i) => (
+                  <div key={i} className="bg-red-50 rounded-xl p-2 text-xs">
                     <div className="flex items-center justify-between text-[10px] mb-0.5">
                       <span className="font-bold text-red-700">
                         {topicLabel(d.topic)}
                       </span>
                       <span className="text-slate-500">{formatMs(d.timeMs)}</span>
                     </div>
-                    <div className="text-stone-800">{d.questionText}</div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      תשובה: <span className="font-black text-red-700">{d.studentAnswer}</span>
+                    <div className="text-stone-800 line-clamp-2">{d.questionText}</div>
+                    <div className="text-[10px] text-slate-600 mt-0.5">
+                      תשובת הילד:{" "}
+                      <span className="font-black text-red-700">{d.studentAnswer}</span>
                       {" · "}
-                      נכון: <span className="font-black text-emerald-700">{d.correctAnswer}</span>
+                      נכון:{" "}
+                      <span className="font-black text-emerald-700">{d.correctAnswer}</span>
                     </div>
                   </div>
                 ))}
+                {report.incorrectAttempts.length > 6 && (
+                  <p className="text-[10px] text-slate-500 text-center pt-0.5">
+                    + עוד {report.incorrectAttempts.length - 6} טעויות
+                  </p>
+                )}
               </div>
             </div>
           )}
 
           {/* דילוגים */}
           {report.skippedAttempts.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow">
-              <h3 className="font-black text-slate-800 mb-3">
+            <div className="bg-white rounded-2xl p-3 border-2 border-slate-200 shadow shrink-0">
+              <h3 className="font-black text-slate-800 mb-2 text-sm">
                 ⏭ דילוגים ({report.skippedAttempts.length})
               </h3>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {report.skippedAttempts.map((d, i) => (
-                  <div key={i} className="bg-amber-50 rounded-xl p-2 text-sm">
+              <div className="space-y-1.5 max-h-[18vh] overflow-hidden">
+                {report.skippedAttempts.slice(0, 5).map((d, i) => (
+                  <div key={i} className="bg-amber-50 rounded-xl p-2 text-xs">
                     <div className="flex items-center justify-between text-[10px] mb-0.5">
                       <span className="font-bold text-amber-700">
                         {topicLabel(d.topic)}
                       </span>
                       <span className="text-slate-500">{formatMs(d.timeMs)}</span>
                     </div>
-                    <div className="text-stone-800">{d.questionText}</div>
-                    <div className="text-xs text-slate-600 mt-1">
+                    <div className="text-stone-800 line-clamp-2">{d.questionText}</div>
+                    <div className="text-[10px] text-slate-600 mt-0.5">
                       תשובה נכונה: <span className="font-black text-emerald-700">{d.correctAnswer}</span>
                     </div>
                   </div>
                 ))}
+                {report.skippedAttempts.length > 5 && (
+                  <p className="text-[10px] text-slate-500 text-center">
+                    + עוד {report.skippedAttempts.length - 5} דילוגים
+                  </p>
+                )}
               </div>
             </div>
           )}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -345,4 +345,25 @@ export const GRADE_1_QUESTIONS: Question[] = [
     visual: { type: "shape", shape: "circle" },
     acceptAlternatives: ["עגול", "מעגל"],
   },
+
+  // ===== כפל בסיסי (קבוצות שוות) =====
+  { id: "g1_mul_2x3", text: "2 × 3 = ?", answer: "6", topic: "multiplication", difficulty: 1, grade: 1 },
+  { id: "g1_mul_2x4", text: "2 × 4 = ?", answer: "8", topic: "multiplication", difficulty: 1, grade: 1 },
+  { id: "g1_mul_3x2", text: "3 × 2 = ?", answer: "6", topic: "multiplication", difficulty: 1, grade: 1 },
+  { id: "g1_mul_2x5", text: "2 × 5 = ?", answer: "10", topic: "multiplication", difficulty: 1, grade: 1 },
+  { id: "g1_mul_3x3", text: "3 × 3 = ?", answer: "9", topic: "multiplication", difficulty: 1, grade: 1 },
+
+  // ===== חילוק (חלוקה שווה) =====
+  { id: "g1_div_6_2", text: "6 ÷ 2 = ?", answer: "3", topic: "division", difficulty: 1, grade: 1 },
+  { id: "g1_div_8_2", text: "8 ÷ 2 = ?", answer: "4", topic: "division", difficulty: 1, grade: 1 },
+  { id: "g1_div_10_2", text: "10 ÷ 2 = ?", answer: "5", topic: "division", difficulty: 1, grade: 1 },
+  { id: "g1_div_12_3", text: "12 ÷ 3 = ?", answer: "4", topic: "division", difficulty: 1, grade: 1 },
+  { id: "g1_div_15_3", text: "15 ÷ 3 = ?", answer: "5", topic: "division", difficulty: 1, grade: 1 },
+
+  // ===== שברים - חלקים וחצי =====
+  { id: "g1_frac_half_10", text: "כמה זה חצי מ-10?", answer: "5", topic: "fractions", difficulty: 1, grade: 1 },
+  { id: "g1_frac_quarter_8", text: "כמה זה רבע מ-8?", answer: "2", topic: "fractions", difficulty: 1, grade: 1 },
+  { id: "g1_frac_half_14", text: "כמה זה חצי מ-14?", answer: "7", topic: "fractions", difficulty: 1, grade: 1 },
+  { id: "g1_frac_compare_unit", text: "איזה חלק גדול יותר: שליש או חמישית? (כתוב 'שליש' או 'חמישית')", answer: "שליש", topic: "fractions", difficulty: 1, grade: 1 },
+  { id: "g1_frac_parts_pizza", text: "פיצה חולקה ל-4 חלקים שווים. אכלו 3 חלקים. כמה חלקים נשארו?", answer: "1", topic: "fractions", difficulty: 1, grade: 1 },
 ];

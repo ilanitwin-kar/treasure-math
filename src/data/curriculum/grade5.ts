@@ -95,4 +95,18 @@ export const GRADE_5_QUESTIONS: Question[] = [
   { id: "g5_avg_a", text: "מה הממוצע של המספרים: 10, 20, 30?", answer: "20", topic: "wordProblems", difficulty: 5, grade: 5 },
   { id: "g5_avg_b", text: "מה הממוצע של 5, 10, 15, 20?", answer: "12.5", topic: "wordProblems", difficulty: 5, grade: 5 },
   { id: "g5_avg_c", text: "תלמיד קיבל 80, 90, 100 במבחנים. מה הממוצע שלו?", answer: "90", topic: "wordProblems", difficulty: 5, grade: 5 },
+
+  // ===== ספירה ויזואלית =====
+  { id: "g5_count_44", text: "כמה כוכבים יש כאן?", answer: "44", topic: "counting", difficulty: 5, grade: 5, kind: "counting", visual: { type: "counting", emoji: "⭐", count: 44 } },
+  { id: "g5_count_48", text: "כמה תפוחים יש כאן?", answer: "48", topic: "counting", difficulty: 5, grade: 5, kind: "counting", visual: { type: "counting", emoji: "🍎", count: 48 } },
+  { id: "g5_count_52", text: "כמה דגים יש כאן?", answer: "52", topic: "counting", difficulty: 5, grade: 5, kind: "counting", visual: { type: "counting", emoji: "🐠", count: 52 } },
+  { id: "g5_count_56", text: "כמה פרחים יש כאן?", answer: "56", topic: "counting", difficulty: 5, grade: 5, kind: "counting", visual: { type: "counting", emoji: "🌸", count: 56 } },
+  { id: "g5_count_60", text: "כמה בלונים יש כאן?", answer: "60", topic: "counting", difficulty: 5, grade: 5, kind: "counting", visual: { type: "counting", emoji: "🎈", count: 60 } },
+
+  // ===== זמן =====
+  { id: "g5_time_min_in_2h", text: "כמה דקות יש בשעתיים?", answer: "120", topic: "time", difficulty: 5, grade: 5 },
+  { id: "g5_time_sec_in_5min", text: "כמה שניות יש ב-5 דקות?", answer: "300", topic: "time", difficulty: 5, grade: 5 },
+  { id: "g5_time_clock_2", text: "איזו שעה השעון מראה?", answer: "2", topic: "time", difficulty: 5, grade: 5, kind: "clock", visual: { type: "clock", hour: 2 } },
+  { id: "g5_time_clock_7", text: "איזו שעה השעון מראה?", answer: "7", topic: "time", difficulty: 5, grade: 5, kind: "clock", visual: { type: "clock", hour: 7 } },
+  { id: "g5_time_hours_in_3days", text: "כמה שעות יש ב-3 ימים?", answer: "72", topic: "time", difficulty: 5, grade: 5 },
 ];

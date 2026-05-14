@@ -14,6 +14,21 @@ import type { Question } from "../../types";
  * 8. ממוצע חשבוני
  */
 export const GRADE_6_QUESTIONS: Question[] = [
+  // ===== מספרים טבעיים (מבנה, השוואה, עיגול) =====
+  {
+    id: "g6_num_compare",
+    text: "איזה מספר גדול יותר: 9,999,999 או 10,000,001?",
+    answer: "10000001",
+    topic: "numbers",
+    difficulty: 6,
+    grade: 6,
+    acceptAlternatives: ["10,000,001"],
+  },
+  { id: "g6_num_digit_val", text: "מה ערך הספרה 7 במספר 7,250,000?", answer: "7000000", topic: "numbers", difficulty: 6, grade: 6, acceptAlternatives: ["7,000,000"] },
+  { id: "g6_num_round_mil", text: "עגל את 4,567,890 למיליון השלם הקרוב", answer: "5000000", topic: "numbers", difficulty: 6, grade: 6, acceptAlternatives: ["5,000,000"] },
+  { id: "g6_num_prime_29", text: "האם 29 הוא מספר ראשוני? (כתוב 'כן' או 'לא')", answer: "כן", topic: "numbers", difficulty: 6, grade: 6 },
+  { id: "g6_num_billion_zeros", text: "כמה אפסים יש במיליארד (בכתיב המקובל: 1,000,000,000)?", answer: "9", topic: "numbers", difficulty: 6, grade: 6 },
+
   // ===== חזרה על מספרים טבעיים =====
   { id: "g6_add_a", text: "5,432,167 + 2,345,833 = ?", answer: "7778000", topic: "addition", difficulty: 6, grade: 6, acceptAlternatives: ["7,778,000"] },
   { id: "g6_add_b", text: "1,250,000 + 3,750,000 = ?", answer: "5000000", topic: "addition", difficulty: 6, grade: 6, acceptAlternatives: ["5,000,000"] },
@@ -101,4 +116,18 @@ export const GRADE_6_QUESTIONS: Question[] = [
   { id: "g6_word_c", text: "מחיר חולצה עם הנחה של 20% הוא 80 ש\"ח. מה היה המחיר המקורי?", answer: "100", topic: "wordProblems", difficulty: 6, grade: 6 },
   { id: "g6_word_d", text: "נסע אדם 60 ק\"מ ב-1.5 שעות. מה המהירות הממוצעת שלו (ק\"מ לשעה)?", answer: "40", topic: "wordProblems", difficulty: 6, grade: 6 },
   { id: "g6_word_e", text: "תיבה במידות 10×5×4 ס\"מ. ספרים במידות 5×4×1 ס\"מ. כמה ספרים יכולים להיכנס?", answer: "10", topic: "wordProblems", difficulty: 6, grade: 6 },
+
+  // ===== ספירה ויזואלית =====
+  { id: "g6_count_55", text: "כמה כוכבים יש כאן?", answer: "55", topic: "counting", difficulty: 6, grade: 6, kind: "counting", visual: { type: "counting", emoji: "⭐", count: 55 } },
+  { id: "g6_count_60", text: "כמה תפוחים יש כאן?", answer: "60", topic: "counting", difficulty: 6, grade: 6, kind: "counting", visual: { type: "counting", emoji: "🍎", count: 60 } },
+  { id: "g6_count_65", text: "כמה דגים יש כאן?", answer: "65", topic: "counting", difficulty: 6, grade: 6, kind: "counting", visual: { type: "counting", emoji: "🐠", count: 65 } },
+  { id: "g6_count_70", text: "כמה פרחים יש כאן?", answer: "70", topic: "counting", difficulty: 6, grade: 6, kind: "counting", visual: { type: "counting", emoji: "🌸", count: 70 } },
+  { id: "g6_count_75", text: "כמה בלונים יש כאן?", answer: "75", topic: "counting", difficulty: 6, grade: 6, kind: "counting", visual: { type: "counting", emoji: "🎈", count: 75 } },
+
+  // ===== זמן =====
+  { id: "g6_time_min_in_4h", text: "כמה דקות יש ב-4 שעות?", answer: "240", topic: "time", difficulty: 6, grade: 6 },
+  { id: "g6_time_sec_in_10min", text: "כמה שניות יש ב-10 דקות?", answer: "600", topic: "time", difficulty: 6, grade: 6 },
+  { id: "g6_time_leap_days", text: "כמה ימים יש בשנה מעוברת?", answer: "366", topic: "time", difficulty: 6, grade: 6 },
+  { id: "g6_time_clock_6", text: "איזו שעה השעון מראה?", answer: "6", topic: "time", difficulty: 6, grade: 6, kind: "clock", visual: { type: "clock", hour: 6 } },
+  { id: "g6_time_clock_10", text: "איזו שעה השעון מראה?", answer: "10", topic: "time", difficulty: 6, grade: 6, kind: "clock", visual: { type: "clock", hour: 10 } },
 ];

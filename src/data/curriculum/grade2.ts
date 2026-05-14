@@ -63,6 +63,13 @@ export const GRADE_2_QUESTIONS: Question[] = [
   { id: "g2_half_a", text: "כמה זה חצי מ-18?", answer: "9", topic: "division", difficulty: 2, grade: 2 },
   { id: "g2_half_b", text: "כמה זה חצי מ-50?", answer: "25", topic: "division", difficulty: 2, grade: 2 },
 
+  // ===== שברים - חלקים וחיבור פשוט =====
+  { id: "g2_frac_half_16", text: "כמה זה 1/2 מ-16?", answer: "8", topic: "fractions", difficulty: 2, grade: 2 },
+  { id: "g2_frac_quarter_20", text: "כמה זה 1/4 מ-20?", answer: "5", topic: "fractions", difficulty: 2, grade: 2 },
+  { id: "g2_frac_add_same", text: "1/5 + 2/5 = ? (כתוב כשבר מצומצם)", answer: "3/5", topic: "fractions", difficulty: 2, grade: 2 },
+  { id: "g2_frac_compare_third_fifth", text: "מה גדול יותר: 1/3 או 1/5? (כתוב כשבר)", answer: "1/3", topic: "fractions", difficulty: 2, grade: 2 },
+  { id: "g2_frac_third_of_12", text: "כמה זה 1/3 מ-12?", answer: "4", topic: "fractions", difficulty: 2, grade: 2 },
+
   // ===== שאלות מילוליות =====
   { id: "g2_word_a", text: "למיה יש 110 שקלים. היא קנתה ספר ב-37 שקלים. כמה כסף נשאר לה?", answer: "73", topic: "wordProblems", difficulty: 2, grade: 2 },
   { id: "g2_word_b", text: "בכל אריזה יש 5 סוכריות. כמה סוכריות יש ב-8 אריזות?", answer: "40", topic: "wordProblems", difficulty: 2, grade: 2 },

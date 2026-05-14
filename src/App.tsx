@@ -10,6 +10,8 @@ import { ShopScreen } from "./screens/ShopScreen";
 import { TeacherDashboardScreen } from "./screens/TeacherDashboardScreen";
 import { IntroStoryScreen } from "./screens/IntroStoryScreen";
 import { useGameStore } from "./store/gameStore";
+import { SpeechProvider } from "./hooks/useSpeech";
+import { GlobalSpeechMute } from "./components/GlobalSpeechMute";
 
 function App() {
   const hydrate = useGameStore((s) => s.hydrate);
@@ -20,7 +22,9 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen relative">
+      <SpeechProvider>
+      <div className="h-full min-h-0 max-h-[100dvh] overflow-hidden relative">
+        <GlobalSpeechMute />
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/login" element={<LoginScreen />} />
@@ -33,6 +37,7 @@ function App() {
           <Route path="/intro" element={<IntroStoryScreen />} />
         </Routes>
       </div>
+      </SpeechProvider>
     </BrowserRouter>
   );
 }

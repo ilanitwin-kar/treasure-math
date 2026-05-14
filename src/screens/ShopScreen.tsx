@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Parrot } from "../components/Parrot";
 import { BigButton } from "../components/BigButton";
 import { useGameStore } from "../store/gameStore";
 import { CATEGORY_LABELS, SHOP_ITEMS } from "../data/shopItems";
+import { useSpeech } from "../hooks/useSpeech";
+import { SpeechInlineButton } from "../components/SpeechInlineButton";
 import type { ShopItem } from "../types";
+
+const SHOP_GUIDE_SPEECH =
+  "ברוך הבא לחנות שלי, פיראט! כל פנינה שאספת היא מטבע יקרה. בחר בחוכמה.";
 
 type Category = ShopItem["category"];
 const CATEGORIES: Category[] = ["hat", "ship", "pet", "decoration"];
@@ -20,6 +25,15 @@ export function ShopScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("hat");
   const [purchasedItem, setPurchasedItem] = useState<ShopItem | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const { speakKeyed, stop } = useSpeech();
+
+  useEffect(() => {
+    speakKeyed("shop", SHOP_GUIDE_SPEECH, "guide");
+    return () => {
+      stop();
+    };
+  }, [speakKeyed, stop]);
 
   if (!profile) {
     navigate("/login", { replace: true });
@@ -47,7 +61,7 @@ export function ShopScreen() {
   };
 
   return (
-    <div className="min-h-full flex flex-col px-3 py-3 bg-gradient-to-b from-amber-100 via-amber-50 to-orange-100">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col px-2 py-2 bg-gradient-to-b from-amber-100 via-amber-50 to-orange-100">
       {/* כותרת */}
       <div className="flex items-center justify-between mb-2 shrink-0">
         <button
@@ -64,9 +78,15 @@ export function ShopScreen() {
       </div>
 
       {/* תיאור התוכי */}
-      <div className="flex items-center gap-2 mb-3 shrink-0 bg-white/80 rounded-2xl border-2 border-amber-300 shadow p-2">
+      <div className="flex items-center gap-2 mb-3 shrink-0 bg-white/80 rounded-2xl border-2 border-amber-300 shadow p-2 relative pr-11">
+        <SpeechInlineButton
+          slotKey="shop"
+          payload={{ kind: "single", text: SHOP_GUIDE_SPEECH, personality: "guide" }}
+          className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
+          titleIdle="השמע את ההסבר"
+        />
         <Parrot size={48} mood="happy" />
-        <div className="flex-1 text-xs sm:text-sm font-bold text-stone-700 leading-tight">
+        <div className="flex-1 text-xs sm:text-sm font-bold text-stone-700 leading-tight min-w-0">
           ברוך הבא לחנות שלי, פיראט!
           <br />
           <span className="text-stone-500 font-normal">
@@ -76,12 +96,12 @@ export function ShopScreen() {
       </div>
 
       {/* קטגוריות */}
-      <div className="flex gap-1 mb-3 shrink-0 overflow-x-auto pb-1">
+      <div className="flex flex-wrap justify-center gap-1 mb-2 shrink-0">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`shrink-0 rounded-xl px-3 py-2 font-bold text-sm shadow transition-all active:scale-95 ${
+            className={`shrink-0 rounded-lg px-2 py-1.5 font-bold text-xs shadow transition-all active:scale-95 ${
               selectedCategory === cat
                 ? "bg-amber-500 text-white"
                 : "bg-white/80 text-stone-700 hover:bg-amber-100"
@@ -93,7 +113,7 @@ export function ShopScreen() {
       </div>
 
       {/* פריטים */}
-      <div className="grid grid-cols-2 gap-3 flex-1 content-start">
+      <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 overflow-hidden content-start auto-rows-min pb-1">
         {itemsInCategory.map((item) => {
           const isOwned = inventory.ownedItems.includes(item.id);
           const isEquipped = inventory.equippedItems[item.category] === item.id;
@@ -102,7 +122,7 @@ export function ShopScreen() {
             <motion.div
               key={item.id}
               whileTap={{ scale: 0.97 }}
-              className={`rounded-2xl p-3 border-4 shadow ${
+              className={`rounded-xl p-2 border-2 shadow ${
                 isEquipped
                   ? "bg-emerald-50 border-emerald-400"
                   : isOwned
@@ -112,11 +132,11 @@ export function ShopScreen() {
                   : "bg-stone-100 border-stone-300 opacity-70"
               }`}
             >
-              <div className="text-4xl text-center mb-1">{item.emoji}</div>
-              <div className="text-sm font-black text-stone-800 text-center leading-tight">
+              <div className="text-3xl text-center mb-0.5">{item.emoji}</div>
+              <div className="text-xs font-black text-stone-800 text-center leading-tight line-clamp-2">
                 {item.name}
               </div>
-              <div className="text-[10px] text-stone-500 text-center my-1 leading-tight min-h-[28px]">
+              <div className="text-[9px] text-stone-500 text-center my-0.5 leading-tight line-clamp-2 min-h-[24px]">
                 {item.description}
               </div>
               <button
