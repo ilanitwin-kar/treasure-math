@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Parrot } from "../components/Parrot";
@@ -8,7 +8,6 @@ import { PirateAvatar } from "../components/PirateAvatar";
 import { useGameStore } from "../store/gameStore";
 import { getPirateById } from "../data/pirates";
 import { hasSeenIntro } from "../storage/storage";
-import { useSpeech } from "../hooks/useSpeech";
 import type { Grade, PirateId, StudentProfile } from "../types";
 
 const GRADES: Grade[] = [1, 2, 3, 4, 5, 6];
@@ -34,18 +33,6 @@ export function ProfileScreen() {
   const [name, setName] = useState("");
   const [grade, setGrade] = useState<Grade | null>(null);
   const [age, setAge] = useState<number | null>(null);
-
-  const { speakKeyed, stop } = useSpeech();
-
-  const PROFILE_GUIDE_SPEECH = "ספר לי על עצמך, פיראט! איך קוראים לך?";
-
-  useEffect(() => {
-    if (!pirateId) return;
-    speakKeyed("profile", PROFILE_GUIDE_SPEECH, "guide");
-    return () => {
-      stop();
-    };
-  }, [pirateId, speakKeyed, stop]);
 
   const canContinue = name.trim().length > 0 && grade !== null && age !== null;
 
@@ -75,19 +62,10 @@ export function ProfileScreen() {
   }
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col items-center px-3 py-2">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col items-center px-3 py-2">
       <div className="flex items-center gap-2 mb-2 shrink-0 max-w-md">
         <Parrot size={56} mood="happy" />
-        <SpeechBubble
-          pointerSide="right"
-          innerTextClassName="text-xs sm:text-sm"
-          speechReplay={{
-            slotKey: "profile",
-            kind: "single",
-            text: PROFILE_GUIDE_SPEECH,
-            personality: "guide",
-          }}
-        >
+        <SpeechBubble pointerSide="right" innerTextClassName="text-xs sm:text-sm">
           ספר לי על עצמך, פיראט!
           <br />
           איך קוראים לך?
@@ -97,7 +75,7 @@ export function ProfileScreen() {
       <motion.div
         initial={{ y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white/90 rounded-2xl p-3 w-full max-w-md shadow-xl border-2 border-amber-200 flex-1 min-h-0 overflow-hidden flex flex-col gap-2"
+        className="bg-white/90 rounded-2xl p-3 w-full max-w-md shadow-xl border-2 border-amber-200 flex-1 min-h-0 overflow-x-hidden overflow-y-auto flex flex-col gap-2"
       >
         {/* תצוגת פיראט נבחר */}
         {pirate && (

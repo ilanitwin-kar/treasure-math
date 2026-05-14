@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Parrot } from "../components/Parrot";
@@ -6,25 +6,12 @@ import { SpeechBubble } from "../components/SpeechBubble";
 import { BigButton } from "../components/BigButton";
 import { PirateAvatar } from "../components/PirateAvatar";
 import { PIRATES } from "../data/pirates";
-import { useSpeech } from "../hooks/useSpeech";
 import type { PirateGender, PirateId } from "../types";
-
-const LOGIN_GUIDE_SPEECH =
-  "הצוות הפיראטי שלי מחפש חבר חדש! איזה פיראט אתה רוצה להיות?";
 
 export function LoginScreen() {
   const navigate = useNavigate();
   const [gender, setGender] = useState<PirateGender>("boy");
   const [selectedPirate, setSelectedPirate] = useState<PirateId | null>(null);
-  const { speakKeyed, stop } = useSpeech();
-
-  useEffect(() => {
-    speakKeyed("login", LOGIN_GUIDE_SPEECH, "guide");
-    return () => {
-      stop();
-    };
-  }, [speakKeyed, stop]);
-
   const handleContinue = () => {
     if (!selectedPirate) return;
     navigate("/profile", { state: { pirateId: selectedPirate } });
@@ -33,7 +20,7 @@ export function LoginScreen() {
   const visiblePirates = PIRATES.filter((p) => p.gender === gender);
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col items-center px-3 py-2 relative">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col items-center px-3 py-2 relative">
       <button
         onClick={() => navigate("/teacher")}
         className="absolute top-1 left-1 text-[10px] opacity-30 hover:opacity-100 px-1.5 py-0.5 bg-white/40 rounded-md z-10"
@@ -45,16 +32,7 @@ export function LoginScreen() {
 
       <div className="flex items-center gap-2 mb-2 shrink-0 max-w-md">
         <Parrot size={64} mood="happy" />
-        <SpeechBubble
-          pointerSide="right"
-          innerTextClassName="text-xs sm:text-sm"
-          speechReplay={{
-            slotKey: "login",
-            kind: "single",
-            text: LOGIN_GUIDE_SPEECH,
-            personality: "guide",
-          }}
-        >
+        <SpeechBubble pointerSide="right" innerTextClassName="text-xs sm:text-sm">
           הצוות הפיראטי שלי מחפש חבר חדש!
           <br />
           איזה פיראט אתה רוצה להיות?

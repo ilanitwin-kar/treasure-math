@@ -12,6 +12,7 @@ import { IntroStoryScreen } from "./screens/IntroStoryScreen";
 import { useGameStore } from "./store/gameStore";
 import { SpeechProvider } from "./hooks/useSpeech";
 import { GlobalSpeechMute } from "./components/GlobalSpeechMute";
+import { ProfileEditModal } from "./components/ProfileEditModal";
 
 function App() {
   const hydrate = useGameStore((s) => s.hydrate);
@@ -23,7 +24,7 @@ function App() {
   return (
     <BrowserRouter>
       <SpeechProvider>
-      <div className="h-full min-h-0 max-h-[100dvh] overflow-hidden relative">
+      <div className="min-h-0 min-h-[100dvh] w-full relative">
         <GlobalSpeechMute />
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
@@ -36,6 +37,7 @@ function App() {
           <Route path="/teacher" element={<TeacherDashboardScreen />} />
           <Route path="/intro" element={<IntroStoryScreen />} />
         </Routes>
+        <ProfileEditModal />
       </div>
       </SpeechProvider>
     </BrowserRouter>

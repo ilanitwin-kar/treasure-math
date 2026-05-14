@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BigButton } from "../components/BigButton";
 import { CaptainYamZahav } from "../components/CaptainYamZahav";
 import { PirateAvatar } from "../components/PirateAvatar";
+import { ProfileHeaderButton } from "../components/ProfileHeaderButton";
 import { markIntroSeen } from "../storage/storage";
 import { useGameStore } from "../store/gameStore";
 import { getPirateById } from "../data/pirates";
-import { stripForSpeech, useSpeech } from "../hooks/useSpeech";
-import { SpeechInlineButton } from "../components/SpeechInlineButton";
 
 interface Scene {
   bgGradient: string;
@@ -143,29 +142,8 @@ export function IntroStoryScreen() {
   const isFirst = sceneIndex === 0;
   const isLast = sceneIndex === scenes.length - 1;
 
-  const { speakKeyed, stop } = useSpeech();
-
-  const introSlotKey = useMemo(() => `intro-${sceneIndex}`, [sceneIndex]);
-
-  const captainSceneSpeech = useMemo(() => {
-    return scene.narration
-      .filter((l) => l.trim().length > 0)
-      .map((l) => stripForSpeech(l))
-      .filter((l) => l.length > 0)
-      .join(". ");
-  }, [scene]);
-
-  useEffect(() => {
-    if (!captainSceneSpeech) return;
-    speakKeyed(introSlotKey, captainSceneSpeech, "captain");
-    return () => {
-      stop();
-    };
-  }, [sceneIndex, introSlotKey, captainSceneSpeech, speakKeyed, stop]);
-
   const handleNext = () => {
     if (isLast) {
-      stop();
       markIntroSeen();
       navigate(returnTo);
     } else {
@@ -174,14 +152,13 @@ export function IntroStoryScreen() {
   };
 
   const handleSkip = () => {
-    stop();
     markIntroSeen();
     navigate(returnTo);
   };
 
   return (
     <div
-      className={`h-full min-h-0 overflow-hidden flex flex-col px-2 py-2 bg-gradient-to-b ${scene.bgGradient} relative transition-colors`}
+      className={`min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col px-2 py-2 bg-gradient-to-b ${scene.bgGradient} relative transition-colors`}
     >
       {/* אמוג'ים צפים ברקע */}
       {scene.floatingEmojis.map((emoji, i) => (
@@ -206,13 +183,20 @@ export function IntroStoryScreen() {
       ))}
 
       {/* כפתור דלג */}
-      <div className="flex justify-between items-center shrink-0 mb-2">
-        <div className="bg-white/80 rounded-full px-3 py-1 shadow text-xs font-bold text-stone-700">
+      <div className="flex justify-between items-center gap-1 shrink-0 mb-2" dir="rtl">
+        <div className="bg-white/80 rounded-full px-3 py-1 shadow text-xs font-bold text-stone-700 shrink-0">
           סצנה {sceneIndex + 1} / {scenes.length}
         </div>
+        {profile ? (
+          <div className="flex-1 flex justify-center min-w-0 px-1">
+            <ProfileHeaderButton className="max-w-full" />
+          </div>
+        ) : (
+          <div className="flex-1 min-w-0" aria-hidden />
+        )}
         <button
           onClick={handleSkip}
-          className="bg-white/80 rounded-full px-3 py-1 shadow text-xs font-bold text-stone-700 active:scale-95"
+          className="bg-white/80 rounded-full px-3 py-1 shadow text-xs font-bold text-stone-700 active:scale-95 shrink-0"
         >
           דלג ⏭
         </button>
@@ -226,7 +210,7 @@ export function IntroStoryScreen() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -50 }}
           transition={{ duration: 0.4 }}
-          className="flex-1 flex flex-col items-center justify-center text-center min-h-0 overflow-hidden py-1"
+          className="flex-1 flex flex-col items-center justify-center text-center min-h-0 overflow-x-hidden overflow-y-auto py-1"
         >
           {/* אמוג'י גדול */}
           <motion.div
@@ -297,20 +281,10 @@ export function IntroStoryScreen() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className={`bg-white/95 rounded-xl p-2.5 max-w-md shadow-lg border-2 max-h-[38vh] min-h-0 overflow-hidden flex flex-col relative pr-10 ${
+            className={`bg-white/95 rounded-xl p-2.5 max-w-md shadow-lg border-2 max-h-[38vh] min-h-0 overflow-x-hidden overflow-y-auto flex flex-col relative ${
               scene.textOnDark ? "border-purple-300" : "border-amber-300"
             }`}
           >
-            <SpeechInlineButton
-              slotKey={introSlotKey}
-              payload={{
-                kind: "single",
-                text: captainSceneSpeech,
-                personality: "captain",
-              }}
-              className="absolute top-2 right-2 z-[1] w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
-              titleIdle="השמע את הסיפור"
-            />
             {/* "פצפץ דיבור" - חץ כלפי הדמות */}
             <div
               className={`absolute -top-3 ${

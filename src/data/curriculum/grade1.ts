@@ -322,6 +322,7 @@ export const GRADE_1_QUESTIONS: Question[] = [
     grade: 1,
     kind: "shape",
     visual: { type: "shape", shape: "triangle" },
+    tapChoices: ["משולש", "ריבוע", "עיגול", "מחומש"],
   },
   {
     id: "g1_shape_name_square",
@@ -333,6 +334,7 @@ export const GRADE_1_QUESTIONS: Question[] = [
     kind: "shape",
     visual: { type: "shape", shape: "square" },
     acceptAlternatives: ["מרובע"],
+    tapChoices: ["ריבוע", "מרובע", "משולש", "עיגול"],
   },
   {
     id: "g1_shape_name_circle",
@@ -344,6 +346,7 @@ export const GRADE_1_QUESTIONS: Question[] = [
     kind: "shape",
     visual: { type: "shape", shape: "circle" },
     acceptAlternatives: ["עגול", "מעגל"],
+    tapChoices: ["עיגול", "עגול", "מעגל", "משולש", "ריבוע"],
   },
 
   // ===== כפל בסיסי (קבוצות שוות) =====

@@ -84,6 +84,12 @@ interface GameState {
   spendPearls: (amount: number) => boolean;
   buyItem: (itemId: string, price: number) => boolean;
   equipItem: (category: string, itemId: string) => void;
+
+  profileEditModalOpen: boolean;
+  openProfileEditModal: () => void;
+  closeProfileEditModal: () => void;
+  /** עדכון שם/גיל/כיתה. שינוי כיתה מאפס את ה-session (מסלול איים + attempts). */
+  applyProfileEdits: (next: { name: string; age: number; grade: Grade }) => void;
 }
 
 function rebuildIslands(grade: number | undefined): Island[] {
@@ -146,6 +152,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   recentPearlGain: null,
   recentlyRescuedEvent: null,
   mapFeedback: null,
+
+  profileEditModalOpen: false,
 
   hydrate: () => {
     const profile = loadProfile();
@@ -451,5 +459,55 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
     saveInventory(profile.id, next);
     set({ inventory: next });
+  },
+
+  openProfileEditModal: () => set({ profileEditModalOpen: true }),
+  closeProfileEditModal: () => set({ profileEditModalOpen: false }),
+
+  applyProfileEdits: ({ name, age, grade }) => {
+    const profile = get().profile;
+    if (!profile) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const gradeChanged = grade !== profile.grade;
+    const nextProfile: StudentProfile = {
+      ...profile,
+      name: trimmed,
+      age,
+      grade,
+    };
+    saveProfile(nextProfile);
+    addProfileToList(nextProfile);
+
+    if (gradeChanged) {
+      const islands = buildIslands(grade);
+      const session: AssessmentSession = {
+        id: `session_${Date.now()}`,
+        studentId: profile.id,
+        startedAt: Date.now(),
+        lastActiveAt: Date.now(),
+        islandIds: islands.map((i) => i.id),
+        currentIslandIndex: 0,
+        currentQuestionInIslandIndex: 0,
+        attempts: [],
+        draftAnswer: "",
+      };
+      saveSession(session);
+      const inventory = loadInventory(profile.id);
+      set({
+        profile: nextProfile,
+        session,
+        islands,
+        inventory,
+        mapFeedback: null,
+        profileEditModalOpen: false,
+      });
+    } else {
+      set({
+        profile: nextProfile,
+        islands: rebuildIslands(grade),
+        profileEditModalOpen: false,
+      });
+    }
   },
 }));

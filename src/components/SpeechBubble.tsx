@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import type { SpeechReplayConfig } from "../hooks/useSpeech";
-import { SpeechInlineButton } from "./SpeechInlineButton";
 
 interface SpeechBubbleProps {
   children: ReactNode;
@@ -9,8 +7,6 @@ interface SpeechBubbleProps {
   /** מחליף את ברירת המחדל לגודל הטקסט הפנימי (למשל במסכים צפופים). */
   innerTextClassName?: string;
   pointerSide?: "right" | "left" | "bottom" | "none";
-  /** כפתור 🔊 / ⏸️ / ▶️ ליד הבועה */
-  speechReplay?: SpeechReplayConfig;
 }
 
 export function SpeechBubble({
@@ -18,19 +14,7 @@ export function SpeechBubble({
   className = "",
   innerTextClassName = "text-lg md:text-xl",
   pointerSide = "right",
-  speechReplay,
 }: SpeechBubbleProps) {
-  const payload =
-    speechReplay?.kind === "sequential"
-      ? { kind: "sequential" as const, parts: speechReplay.parts }
-      : speechReplay?.kind === "single"
-        ? {
-            kind: "single" as const,
-            text: speechReplay.text,
-            personality: speechReplay.personality,
-          }
-        : null;
-
   return (
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
@@ -38,18 +22,7 @@ export function SpeechBubble({
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
       className={`relative bg-white rounded-3xl px-6 py-4 shadow-lg border-4 border-amber-200 ${className}`}
     >
-      {speechReplay && payload && (
-        <SpeechInlineButton
-          slotKey={speechReplay.slotKey}
-          payload={payload}
-          className="absolute top-1 left-1 z-[1] w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-sm flex items-center justify-center active:scale-95 hover:bg-amber-200 shadow-sm"
-        />
-      )}
-      <div
-        className={`text-stone-800 font-bold text-center leading-snug line-clamp-5 ${innerTextClassName} ${
-          speechReplay ? "pt-6" : ""
-        }`}
-      >
+      <div className={`text-stone-800 font-bold text-center leading-snug line-clamp-5 ${innerTextClassName}`}>
         {children}
       </div>
 

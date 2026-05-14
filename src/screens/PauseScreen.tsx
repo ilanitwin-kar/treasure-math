@@ -1,26 +1,18 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Parrot } from "../components/Parrot";
 import { SpeechBubble } from "../components/SpeechBubble";
 import { BigButton } from "../components/BigButton";
-import { useSpeech } from "../hooks/useSpeech";
-
-const PAUSE_GUIDE_SPEECH = "התוכי נח על הדקל. כשאתה מוכן - נחזור לאוצר!";
+import { ProfileHeaderButton } from "../components/ProfileHeaderButton";
 
 export function PauseScreen() {
   const navigate = useNavigate();
-  const { speakKeyed, stop } = useSpeech();
-
-  useEffect(() => {
-    speakKeyed("pause", PAUSE_GUIDE_SPEECH, "guide");
-    return () => {
-      stop();
-    };
-  }, [speakKeyed, stop]);
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col items-center justify-center px-4 py-4">
+    <div className="min-h-[100dvh] min-h-0 w-full overflow-x-hidden overflow-y-auto flex flex-col items-center justify-center px-4 py-4 relative" dir="rtl">
+      <div className="absolute top-2 end-2 z-10 max-w-[min(100%,14rem)]">
+        <ProfileHeaderButton className="w-full" />
+      </div>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -38,37 +30,17 @@ export function PauseScreen() {
           </div>
         </div>
 
-        <SpeechBubble
-          pointerSide="none"
-          className="mb-4 px-4 py-3"
-          innerTextClassName="text-sm"
-          speechReplay={{
-            slotKey: "pause",
-            kind: "single",
-            text: PAUSE_GUIDE_SPEECH,
-            personality: "guide",
-          }}
-        >
+        <SpeechBubble pointerSide="none" className="mb-4 px-4 py-3" innerTextClassName="text-sm">
           התוכי נח על הדקל
           <br />
           כשאתה מוכן - נחזור לאוצר!
         </SpeechBubble>
 
         <div className="flex flex-col gap-3 items-center">
-          <BigButton
-            size="lg"
-            variant="primary"
-            onClick={() => navigate(-1)}
-            icon="⛵"
-          >
+          <BigButton size="lg" variant="primary" onClick={() => navigate(-1)} icon="⛵">
             ממשיכים במסע
           </BigButton>
-          <BigButton
-            size="sm"
-            variant="ghost"
-            onClick={() => navigate("/")}
-            icon="🏠"
-          >
+          <BigButton size="sm" variant="ghost" onClick={() => navigate("/")} icon="🏠">
             לצאת לרגע (יישמר!)
           </BigButton>
         </div>
