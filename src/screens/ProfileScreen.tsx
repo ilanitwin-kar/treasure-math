@@ -1,0 +1,170 @@
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Parrot } from "../components/Parrot";
+import { SpeechBubble } from "../components/SpeechBubble";
+import { BigButton } from "../components/BigButton";
+import { PirateAvatar } from "../components/PirateAvatar";
+import { useGameStore } from "../store/gameStore";
+import { getPirateById } from "../data/pirates";
+import { hasSeenIntro } from "../storage/storage";
+import type { Grade, PirateId, StudentProfile } from "../types";
+
+const GRADES: Grade[] = [1, 2, 3, 4, 5, 6];
+
+const GRADE_LABELS: Record<Grade, string> = {
+  1: "א'",
+  2: "ב'",
+  3: "ג'",
+  4: "ד'",
+  5: "ה'",
+  6: "ו'",
+};
+
+export function ProfileScreen() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const setProfile = useGameStore((s) => s.setProfile);
+  const startNewSession = useGameStore((s) => s.startNewSession);
+
+  const pirateId = (location.state as { pirateId?: PirateId } | null)?.pirateId;
+  const pirate = pirateId ? getPirateById(pirateId) : undefined;
+
+  const [name, setName] = useState("");
+  const [grade, setGrade] = useState<Grade | null>(null);
+  const [age, setAge] = useState<number | null>(null);
+
+  const canContinue = name.trim().length > 0 && grade !== null && age !== null;
+
+  const handleStart = () => {
+    if (!canContinue || !pirateId) return;
+    const profile: StudentProfile = {
+      id: `student_${Date.now()}`,
+      name: name.trim(),
+      grade: grade!,
+      age: age!,
+      pirateId,
+      createdAt: Date.now(),
+    };
+    setProfile(profile);
+    startNewSession();
+    // אם זו הפעם הראשונה במכשיר - מציגים את הסיפור עם הפיראט שלו.
+    if (!hasSeenIntro()) {
+      navigate("/intro", { state: { returnTo: "/map" } });
+    } else {
+      navigate("/map");
+    }
+  };
+
+  if (!pirateId) {
+    navigate("/login", { replace: true });
+    return null;
+  }
+
+  return (
+    <div className="min-h-full flex flex-col items-center px-6 py-6">
+      <div className="flex items-center gap-3 mb-5 max-w-md">
+        <Parrot size={80} mood="happy" />
+        <SpeechBubble pointerSide="right">
+          ספר לי על עצמך, פיראט!
+          <br />
+          איך קוראים לך?
+        </SpeechBubble>
+      </div>
+
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="bg-white/90 rounded-3xl p-5 w-full max-w-md shadow-xl border-4 border-amber-200 space-y-4"
+      >
+        {/* תצוגת פיראט נבחר */}
+        {pirate && (
+          <div className="flex flex-col items-center justify-center gap-1 -mt-2">
+            <div
+              className={`rounded-full p-2 border-4 border-amber-300 shadow bg-gradient-to-br ${
+                pirate.gender === "boy"
+                  ? "from-sky-100 to-cyan-200"
+                  : "from-pink-100 to-rose-200"
+              }`}
+            >
+              <PirateAvatar id={pirate.id} size={80} />
+            </div>
+            <span className="text-stone-700 font-bold text-base">{pirate.name}</span>
+          </div>
+        )}
+
+        {/* שם */}
+        <div>
+          <label className="block text-stone-700 font-bold mb-2 text-lg">השם שלי:</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="הקלד את השם שלך"
+            className="w-full text-2xl text-center bg-amber-50 border-4 border-amber-200 rounded-2xl px-4 py-3 focus:border-amber-400 focus:outline-none font-bold text-stone-800"
+            maxLength={20}
+            autoFocus
+          />
+        </div>
+
+        {/* כיתה */}
+        <div>
+          <label className="block text-stone-700 font-bold mb-2 text-lg">אני בכיתה:</label>
+          <div className="grid grid-cols-6 gap-1.5">
+            {GRADES.map((g) => (
+              <motion.button
+                key={g}
+                type="button"
+                onClick={() => setGrade(g)}
+                whileTap={{ scale: 0.9 }}
+                className={`
+                  aspect-square rounded-xl border-4 font-black text-2xl
+                  ${grade === g
+                    ? "bg-amber-400 border-amber-600 text-white shadow-lg"
+                    : "bg-white border-amber-200 text-amber-700"}
+                `}
+              >
+                {GRADE_LABELS[g]}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* גיל */}
+        <div>
+          <label className="block text-stone-700 font-bold mb-2 text-lg">הגיל שלי:</label>
+          <div className="grid grid-cols-7 gap-1.5">
+            {[6, 7, 8, 9, 10, 11, 12].map((a) => (
+              <motion.button
+                key={a}
+                type="button"
+                onClick={() => setAge(a)}
+                whileTap={{ scale: 0.9 }}
+                className={`
+                  aspect-square rounded-xl border-4 font-black text-xl
+                  ${age === a
+                    ? "bg-sky-400 border-sky-600 text-white shadow-lg"
+                    : "bg-white border-sky-200 text-sky-700"}
+                `}
+              >
+                {a}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="mt-5">
+        <BigButton
+          size="lg"
+          variant="primary"
+          onClick={handleStart}
+          disabled={!canContinue}
+          icon="🗺️"
+        >
+          להתחיל מסע!
+        </BigButton>
+      </div>
+    </div>
+  );
+}
