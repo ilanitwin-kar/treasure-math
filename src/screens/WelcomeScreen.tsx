@@ -28,10 +28,11 @@ export function WelcomeScreen() {
           <ProfileHeaderButton className="w-full" />
         </div>
       ) : null}
-      {/* קישור נסתר לדף המורה - פינה שמאל למעלה */}
+      {/* כניסת מורה — פינה נגדית לפרופיל (ב-RTL end=שמאל, start=ימין) כדי שלא יכסה את הכפתור */}
       <button
+        type="button"
         onClick={() => navigate("/teacher")}
-        className="absolute top-1 left-1 text-[10px] opacity-30 hover:opacity-100 px-1.5 py-0.5 bg-white/40 rounded-md z-10"
+        className="absolute top-2 start-2 text-[10px] opacity-35 hover:opacity-100 px-1.5 py-0.5 bg-white/50 rounded-md z-[35] shadow-sm"
         title="כניסת מורה"
         aria-label="כניסת מורה"
       >
