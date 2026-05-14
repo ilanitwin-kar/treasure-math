@@ -1,8 +1,9 @@
 import type { Grade, Parrot, Topic } from "../types";
 
-/** מחליף את כל המופעים של `{n}` במחרוזות speech (לא רק המופע הראשון). */
+/** מחליף את כל המופעים של `{n}` במחרוזות speech (כולל גרסת מקלדת מלאה `｛n｝`). */
 export function applyParrotNTemplate(text: string, n: number): string {
-  return text.split("{n}").join(String(n));
+  const s = String(n);
+  return text.replace(/\{n\}/g, s).replace(/｛n｝/g, s);
 }
 
 /**
@@ -545,7 +546,7 @@ export const PARROTS: Record<Topic, Parrot> = {
         "ספרתי 1,847 כוכבים בלילה האחרון, 612 גלים, ו-1 פיראט שהגיע! זה אתה! תוסיף עוד אחד - חופשי!",
       ],
       midSpeech: [
-        "{?} 15 חידות יפות! או רגע, 16? לא, 14! אני מבולבל. תעזור לי לספור!",
+        "רגע! 15 חידות יפות! או רגע, 16? לא, 14! אני מבולבל. תעזור לי לספור!",
         "ספרתי 5 בחירות שעשית, 3 פעמים חייכת, ו-1 פעם בלעת רוק. אני לא מפסיק!",
       ],
       waitingSpeech: [
@@ -619,19 +620,19 @@ export function getParrotSpeechForQuestion(
 ): string {
   const parrot = PARROTS[topic];
   const tier = grade <= 2 ? parrot.younger : parrot.older;
-  const remaining = totalQuestionsInIsland - questionIndexInIsland;
+  const remaining = Math.max(0, totalQuestionsInIsland - questionIndexInIsland);
 
+  let raw: string;
   if (questionIndexInIsland === 0) {
-    return pickVariant(tier.intro, 0);
+    raw = pickVariant(tier.intro, questionIndexInIsland);
+  } else if (questionIndexInIsland === totalQuestionsInIsland - 1) {
+    raw = pickVariant(tier.lastQuestion, questionIndexInIsland);
+  } else if (questionIndexInIsland % 2 === 1) {
+    raw = pickVariant(tier.waitingSpeech, questionIndexInIsland);
+  } else {
+    raw = pickVariant(tier.midSpeech, questionIndexInIsland);
   }
-  if (questionIndexInIsland === totalQuestionsInIsland - 1) {
-    return pickVariant(tier.lastQuestion, questionIndexInIsland);
-  }
-  // אמצע - לסירוגין: לפעמים waitingSpeech עם N, ולפעמים midSpeech
-  if (questionIndexInIsland % 2 === 1) {
-    return applyParrotNTemplate(pickVariant(tier.waitingSpeech, questionIndexInIsland), remaining);
-  }
-  return applyParrotNTemplate(pickVariant(tier.midSpeech, questionIndexInIsland), remaining);
+  return applyParrotNTemplate(raw, remaining);
 }
 
 /** מחזיר את משפט החופש של התוכי - לפי גיל. */

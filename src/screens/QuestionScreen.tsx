@@ -223,7 +223,7 @@ export function QuestionScreen() {
       key={n}
       type="button"
       onClick={() => append(String(n))}
-      className={`min-h-[50px] rounded-2xl text-2xl font-black shadow-md border-b-4 active:translate-y-0.5 active:border-b-2 ${keyColors[(n - 1) % keyColors.length]}`}
+      className={`min-h-[56px] rounded-2xl text-3xl sm:text-4xl font-black shadow-md border-b-4 active:translate-y-0.5 active:border-b-2 ${keyColors[(n - 1) % keyColors.length]}`}
     >
       {n}
     </button>
@@ -232,14 +232,14 @@ export function QuestionScreen() {
   return (
     <div
       dir="rtl"
-      className="h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-lg mx-auto overflow-hidden flex flex-col px-2 pt-2 pb-2 box-border"
+      className="h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-lg mx-auto overflow-hidden flex flex-col px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] box-border"
     >
-      <header className="shrink-0 flex items-center justify-between gap-1.5 mb-1.5">
+      <header className="shrink-0 flex items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => navigate("/map")}
-            className="bg-white/90 rounded-full w-9 h-9 shadow font-bold text-stone-700 flex items-center justify-center text-base active:scale-95"
+            className="bg-white/90 rounded-full w-10 h-10 shadow font-bold text-stone-700 flex items-center justify-center text-lg active:scale-95"
             title="חזרה למפה"
             aria-label="חזרה למפה"
           >
@@ -248,18 +248,18 @@ export function QuestionScreen() {
           <button
             type="button"
             onClick={handlePause}
-            className="bg-white/90 rounded-full px-2 py-1.5 shadow font-bold text-stone-700 flex items-center gap-1 active:scale-95 text-xs"
+            className="bg-white/90 rounded-full px-2.5 py-2 shadow font-bold text-stone-700 flex items-center gap-1 active:scale-95 text-sm"
           >
-            <span className="text-base">⏸</span>
+            <span className="text-lg">⏸</span>
             <span>השהה</span>
           </button>
         </div>
-        <div className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-          <div className="bg-amber-400/90 text-white rounded-full px-2 py-0.5 shadow text-xs font-bold flex items-center gap-1 max-w-full truncate">
-            <span>{currentIsland.emoji}</span>
-            <span className="truncate">{currentIsland.title}</span>
+        <div className="flex flex-col items-center gap-1 min-w-0 flex-1 px-1">
+          <div className="bg-amber-400/90 text-white rounded-full px-3 py-1 shadow text-sm sm:text-base font-black flex items-center gap-1 max-w-full">
+            <span className="shrink-0">{currentIsland.emoji}</span>
+            <span className="truncate min-w-0">{currentIsland.title}</span>
           </div>
-          <div className="text-[10px] text-stone-700 font-bold bg-white/70 rounded-full px-2 py-0.5 whitespace-nowrap">
+          <div className="text-xs sm:text-sm text-stone-800 font-black bg-white/80 rounded-full px-2.5 py-1 whitespace-nowrap">
             שאלה {questionInIsland}/{totalInIsland} · אי {islandNum}/{totalIslands}
           </div>
         </div>
@@ -275,42 +275,42 @@ export function QuestionScreen() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-1 flex-col min-h-0 overflow-hidden"
+              className="flex flex-1 flex-col min-h-0 overflow-hidden gap-2"
             >
-              <div className="flex shrink-0 gap-1.5 mb-1 min-h-0 max-h-[20vh] items-end">
+              <div className="flex shrink-0 gap-2 items-end min-h-0">
                 <div className="shrink-0 flex flex-col items-center">
                   <CagedParrot
                     topic={currentIsland.topic}
-                    size={56}
+                    size={64}
                     correctSoFar={correctInIsland}
                     totalQuestions={totalInIsland}
                     state={cageState}
                   />
-                  <div className="text-[9px] font-black text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5 mt-0.5 whitespace-nowrap max-w-[4.5rem] truncate">
+                  <div className="text-[11px] sm:text-xs font-black text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 mt-1 whitespace-nowrap max-w-[6rem] truncate">
                     {parrot?.name}
                   </div>
                 </div>
                 <SpeechBubble
                   pointerSide="right"
-                  className="px-3 py-2 border-2 min-w-0 flex-1 max-h-[20vh] overflow-y-auto"
-                  innerTextClassName="text-xs leading-snug"
+                  className="px-3 py-2.5 border-2 min-w-0 flex-1 max-h-[32vh] sm:max-h-[30vh] overflow-y-auto"
+                  innerTextClassName="text-sm sm:text-base leading-snug"
                 >
-                  {parrotSpeech && <span className="block text-amber-900 font-black">{parrotSpeech}</span>}
-                  <span className="block mt-1 text-stone-800">{question.text}</span>
+                  {parrotSpeech && <span className="block text-amber-950 font-black">{parrotSpeech}</span>}
+                  <span className="block mt-1.5 text-stone-900 text-base sm:text-lg font-bold">{question.text}</span>
                 </SpeechBubble>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border-2 border-amber-300 bg-white p-2 shadow-md overflow-hidden mb-1">
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border-2 border-amber-300 bg-white p-3 shadow-md overflow-y-auto overscroll-y-contain mb-1 gap-2">
                 {question.visual && (
-                  <div className="flex shrink-0 justify-center max-h-[min(16vh,120px)] min-h-0 items-center overflow-hidden mb-1">
-                    <div className="max-h-full scale-[0.85] origin-center flex items-center justify-center">
+                  <div className="flex shrink-0 justify-center w-full max-h-[min(36vh,280px)] min-h-[96px] items-center overflow-hidden py-1">
+                    <div className="max-h-full max-w-full flex items-center justify-center overflow-x-auto">
                       <QuestionVisualRenderer visual={question.visual} />
                     </div>
                   </div>
                 )}
 
                 <div
-                  className="shrink-0 text-center text-sm sm:text-base font-black text-stone-800 mb-1 leading-snug line-clamp-3"
+                  className="shrink-0 text-center text-lg sm:text-xl font-black text-stone-900 leading-snug px-1"
                   dir={isCalculation(question.text) ? "ltr" : "rtl"}
                 >
                   {question.text}
@@ -325,20 +325,20 @@ export function QuestionScreen() {
                   spellCheck={false}
                   value={answer}
                   onChange={() => {}}
-                  placeholder="…"
+                  placeholder="התשובה שלי…"
                   maxLength={MAX_ANSWER_CHARS}
                   aria-label="תשובה"
-                  className="w-full shrink-0 text-center text-xl py-2 bg-amber-50 border-2 border-amber-300 rounded-2xl px-2 font-black text-stone-900 tracking-wide"
+                  className="w-full shrink-0 text-center text-2xl sm:text-3xl py-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-2 font-black text-stone-900 tracking-wide"
                 />
 
                 {chips.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+                  <div className="mt-1 flex flex-wrap justify-center gap-1.5">
                     {chips.map((c) => (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setAnswer(c)}
-                        className="rounded-full bg-violet-100 border-2 border-violet-300 px-2.5 py-1 text-xs font-black text-violet-900 active:scale-95"
+                        className="rounded-full bg-violet-100 border-2 border-violet-300 px-3 py-1.5 text-sm sm:text-base font-black text-violet-900 active:scale-95"
                       >
                         {c}
                       </button>
@@ -347,27 +347,27 @@ export function QuestionScreen() {
                 )}
               </div>
 
-              <div className="mt-auto shrink-0 flex gap-2 w-full max-w-md mx-auto items-stretch min-h-0">
+              <div className="shrink-0 flex gap-2 w-full max-w-md mx-auto items-stretch pt-1">
                 <BigButton
                   size="sm"
                   variant="ghost"
                   onClick={handleSkip}
                   icon="⏭"
-                  className="!w-[22%] !min-h-[48px] !shrink-0 !px-1 !py-2 !text-[11px] !rounded-2xl !border-b-2"
+                  className="!w-[22%] !min-h-[52px] !shrink-0 !px-1 !py-2 !text-sm !font-black !rounded-2xl !border-b-4"
                 >
                   דלג
                 </BigButton>
-                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                  <div className="grid grid-cols-3 gap-1.5">
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => digitKey(n))}
                   </div>
                   {(showSlash || showDot || showComma) && (
-                    <div className="flex gap-1.5 justify-center">
+                    <div className="flex gap-2 justify-center">
                       {showSlash && (
                         <button
                           type="button"
                           onClick={() => append("/")}
-                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                          className="min-h-[44px] flex-1 max-w-[5rem] rounded-xl bg-stone-200 text-lg font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
                         >
                           /
                         </button>
@@ -376,7 +376,7 @@ export function QuestionScreen() {
                         <button
                           type="button"
                           onClick={() => append(".")}
-                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                          className="min-h-[44px] flex-1 max-w-[5rem] rounded-xl bg-stone-200 text-lg font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
                         >
                           .
                         </button>
@@ -385,18 +385,18 @@ export function QuestionScreen() {
                         <button
                           type="button"
                           onClick={() => append(",")}
-                          className="min-h-[40px] flex-1 max-w-[4.5rem] rounded-xl bg-stone-200 font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
+                          className="min-h-[44px] flex-1 max-w-[5rem] rounded-xl bg-stone-200 text-lg font-black text-stone-800 border-b-4 border-stone-400 active:translate-y-0.5"
                         >
                           ,
                         </button>
                       )}
                     </div>
                   )}
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={backspace}
-                      className="min-h-[50px] rounded-2xl bg-gradient-to-br from-stone-300 to-stone-500 text-white text-lg font-black border-b-4 border-stone-700 shadow-md active:translate-y-0.5"
+                      className="min-h-[56px] rounded-2xl bg-gradient-to-br from-stone-300 to-stone-500 text-white text-base font-black border-b-4 border-stone-700 shadow-md active:translate-y-0.5"
                       aria-label="מחק"
                     >
                       מחק ←
@@ -404,7 +404,7 @@ export function QuestionScreen() {
                     <button
                       type="button"
                       onClick={() => append("0")}
-                      className={`min-h-[50px] rounded-2xl text-2xl font-black border-b-4 shadow-md active:translate-y-0.5 ${keyColors[4]}`}
+                      className={`min-h-[56px] rounded-2xl text-3xl font-black border-b-4 shadow-md active:translate-y-0.5 ${keyColors[4]}`}
                     >
                       0
                     </button>
@@ -412,7 +412,7 @@ export function QuestionScreen() {
                       type="button"
                       onClick={handleSubmit}
                       disabled={!answer.trim()}
-                      className="min-h-[50px] rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white text-base font-black border-b-4 border-amber-900 shadow-md active:translate-y-0.5 disabled:opacity-40 disabled:grayscale"
+                      className="min-h-[56px] rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white text-lg font-black border-b-4 border-amber-900 shadow-md active:translate-y-0.5 disabled:opacity-40 disabled:grayscale"
                     >
                       שלח ✨
                     </button>
